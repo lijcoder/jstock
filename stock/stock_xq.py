@@ -28,6 +28,8 @@ from stock.models import (
     BonusRecord,
     SharesHistory,
     SharesChangeRecord,
+    KlineData,
+    KlineRecord,
 )
 
 
@@ -59,38 +61,40 @@ def _convert_date(timestamp_ms: int) -> str:
 
 
 # ============ Token管理 ============
-def _read_cache() -> tuple[Optional[str], bool]:
+def _read_cache() -> tuple[Optional[str], Optional[str], bool]:
     """
-    读取缓存的Token，返回 (token, is_valid)
+    读取缓存的Token和Cookies，返回 (token, cookie_str, is_valid)
     """
     if not os.path.exists(CACHE_FILE):
-        return None, False
+        return None, None, False
 
     try:
         with open(CACHE_FILE, 'r') as f:
             data = json.load(f)
 
         token = data.get('token')
+        cookie_str = data.get('cookie_str')
         timestamp = data.get('timestamp', 0)
         is_valid = data.get('is_valid', True)
 
         # 检查是否过期（超过6小时）
         if time.time() - timestamp > TOKEN_MAX_AGE:
-            return token, False
+            return token, cookie_str, False
 
-        return token, is_valid
+        return token, cookie_str, is_valid
 
     except Exception:
-        return None, False
+        return None, None, False
 
 
-def _write_cache(token: str, is_valid: bool = True):
+def _write_cache(token: str, cookie_str: str = None, is_valid: bool = True):
     """写入Token到缓存"""
     try:
         _ensure_dir()
         with open(CACHE_FILE, 'w') as f:
             json.dump({
                 'token': token,
+                'cookie_str': cookie_str,
                 'timestamp': time.time(),
                 'is_valid': is_valid
             }, f)
@@ -98,25 +102,50 @@ def _write_cache(token: str, is_valid: bool = True):
         pass
 
 
-def _fetch_token() -> Optional[str]:
-    """从浏览器获取Token"""
+def _fetch_cookies() -> tuple[Optional[str], Optional[str]]:
+    """
+    从浏览器获取Token和完整Cookie
+    
+    Returns: (xq_a_token, cookie_str)
+    """
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        page = browser.new_page()
+        context = browser.new_context(
+            user_agent=USER_AGENT
+        )
+        page = context.new_page()
 
         page.goto("https://xueqiu.com", wait_until="networkidle", timeout=30000)
-        page.wait_for_timeout(1000)
+        page.wait_for_timeout(2000)
 
-        cookies = page.context.cookies(["https://xueqiu.com"])
+        # 获取所有cookies
+        cookies = context.cookies(["https://xueqiu.com"])
+        
+        token = None
+        cookie_parts = []
         for c in cookies:
             if c['name'] == 'xq_a_token':
-                return c['value']
-        return None
+                token = c['value']
+            cookie_parts.append(f"{c['name']}={c['value']}")
+        
+        cookie_str = '; '.join(cookie_parts) if cookie_parts else None
+        
+        browser.close()
+        
+        return token, cookie_str
 
 
 def _get_token() -> str:
+    """获取雪球Token（兼容旧接口）"""
+    token, _ = _get_cookies()
+    return token
+
+
+def _get_cookies() -> tuple[str, str]:
     """
-    获取雪球Token（进程安全）
+    获取雪球Token和完整Cookie（进程安全）
+    
+    Returns: (xq_a_token, cookie_str)
     
     1. 检查缓存，未过期且有效则直接返回
     2. 使用文件锁防止并发
@@ -124,9 +153,9 @@ def _get_token() -> str:
     4. 获取新Token并缓存
     """
     # 快速路径：直接读缓存
-    token, is_valid = _read_cache()
-    if token and is_valid:
-        return token
+    token, cookie_str, is_valid = _read_cache()
+    if token and cookie_str and is_valid:
+        return token, cookie_str
 
     # 加锁
     _ensure_dir()
@@ -144,17 +173,17 @@ def _get_token() -> str:
 
         try:
             # 双重检查
-            token, is_valid = _read_cache()
-            if token and is_valid:
-                return token
+            token, cookie_str, is_valid = _read_cache()
+            if token and cookie_str and is_valid:
+                return token, cookie_str
 
-            # 获取新Token
-            token = _fetch_token()
-            if token:
+            # 获取新Token和Cookies
+            token, cookie_str = _fetch_cookies()
+            if token and cookie_str:
                 # 写入缓存
-                _write_cache(token, is_valid=True)
+                _write_cache(token, cookie_str, is_valid=True)
 
-            return token
+            return token, cookie_str
 
         finally:
             fcntl.flock(lock_fd, fcntl.LOCK_UN)
@@ -165,7 +194,7 @@ def _get_token() -> str:
             lock_fd.close()
         except Exception:
             pass
-        return None
+        return None, None
 
 
 # ============ 雪球客户端类 ============
@@ -195,21 +224,18 @@ class XueqiuClient:
         bonus = client.stock_bonus("SH601398")
         for record in bonus.records:
             print(record.dividend_year, record.plan_explain)
-        
-        # 获取K线数据
-        kline = client.stock_kline("SH601398", period="day", count=-30)
-        for record in kline.records:
-            print(record.timestamp, record.close)
     """
 
-    def __init__(self, token: str = None):
+    def __init__(self, token: str = None, cookie_str: str = None):
         """
         初始化客户端
         
-        :param token: 可选，指定Token；默认自动获取
+        :param token: 可选，指定Token
+        :param cookie_str: 可选，指定完整Cookie
         """
         self.session = requests.Session()
         self.token = token
+        self.cookie_str = cookie_str
         self._headers = {
             "User-Agent": USER_AGENT,
             "Referer": "https://xueqiu.com",
@@ -217,28 +243,13 @@ class XueqiuClient:
         }
         
         # 如果没有指定token，则获取
-        if not self.token:
-            self._ensure_token()
+        if not self.token or not self.cookie_str:
+            self._ensure_cookies()
 
-    def _ensure_token(self):
-        """确保有有效的Token"""
-        if not self.token:
-            self.token = _get_token()
-
-    def _verify_token(self, token: str) -> bool:
-        """验证Token是否有效"""
-        headers = self._headers.copy()
-        headers["cookie"] = f"xq_a_token={token};"
-
-        try:
-            response = self.session.get(
-                "https://stock.xueqiu.com/v5/stock/quote.json?symbol=SH601398",
-                headers=headers, timeout=10
-            )
-            data = response.json()
-            return data.get("error_code") == 0
-        except Exception:
-            return False
+    def _ensure_cookies(self):
+        """确保有有效的Token和Cookie"""
+        if not self.token or not self.cookie_str:
+            self.token, self.cookie_str = _get_cookies()
 
     def _request(self, url: str, params: dict = None) -> dict:
         """
@@ -248,19 +259,19 @@ class XueqiuClient:
         :param params: URL参数
         :return: JSON响应
         """
-        self._ensure_token()
+        self._ensure_cookies()
 
         headers = self._headers.copy()
-        headers["cookie"] = f"xq_a_token={self.token};"
+        headers["cookie"] = self.cookie_str
 
         response = self.session.get(url, params=params, headers=headers, timeout=15)
         data = response.json()
 
         # Token失效，重试
         if data.get('error_code') == 400016:
-            self.token = _get_token()
-            if self.token:
-                headers["cookie"] = f"xq_a_token={self.token};"
+            self.token, self.cookie_str = _get_cookies()
+            if self.cookie_str:
+                headers["cookie"] = self.cookie_str
                 response = self.session.get(url, params=params, headers=headers, timeout=15)
                 data = response.json()
 
@@ -393,6 +404,62 @@ class XueqiuClient:
         
         return SharesHistory(symbol=symbol, records=records)
 
+    def stock_kline(self, symbol: str, period: str = "day", count: int = -250) -> KlineData:
+        """
+        获取K线数据
+        
+        :param symbol: 证券代码，如 SH601398
+        :param period: 周期，day/week/month/quarter/year
+        :param count: 数据条数，负数向前，正数向后
+        :return: KlineData 对象
+        """
+        from datetime import datetime as dt
+
+        # 设置时间范围
+        end = int(dt.now().timestamp() * 1000)
+
+        url = "https://stock.xueqiu.com/v5/stock/chart/kline.json"
+        params = {
+            "symbol": symbol,
+            "begin": str(end),
+            "period": period,
+            "type": "before",
+            "count": str(count),
+        }
+
+        json_data = self._request(url, params)
+
+        if 'data' not in json_data or not json_data['data']:
+            return KlineData(symbol=symbol, period=period, records=[])
+
+        columns = json_data["data"].get("column", [])
+        items = json_data["data"].get("item", [])
+
+        if not items:
+            return KlineData(symbol=symbol, period=period, records=[])
+
+        # 字段索引
+        col_idx = {col: i for i, col in enumerate(columns)}
+
+        # 解析每条记录
+        records = []
+        for item in items:
+            record = KlineRecord(
+                timestamp=_convert_date(int(item[col_idx["timestamp"]])) if item[col_idx.get("timestamp")] else None,
+                open=item[col_idx.get("open")],
+                close=item[col_idx.get("close")],
+                high=item[col_idx.get("high")],
+                low=item[col_idx.get("low")],
+                volume=item[col_idx.get("volume")],
+                amount=item[col_idx.get("amount")],
+                turnover=item[col_idx.get("turnoverrate")],
+                chg=item[col_idx.get("chg")],
+                percent=item[col_idx.get("percent")],
+            )
+            records.append(record)
+
+        return KlineData(symbol=symbol, period=period, records=records)
+
 
 # ============ 便捷函数 ============
 _client = None
@@ -419,6 +486,11 @@ def stock_bonus(symbol: str) -> BonusHistory:
 def stock_shares(symbol: str) -> SharesHistory:
     """获取股本变动"""
     return _get_client().stock_shares(symbol)
+
+
+def stock_kline(symbol: str, period: str = "day", count: int = -250) -> KlineData:
+    """获取K线数据"""
+    return _get_client().stock_kline(symbol, period, count)
 
 
 # ============ 主程序 ============
