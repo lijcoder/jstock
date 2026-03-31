@@ -9,3 +9,9 @@ from stock.models import (
     KlineRecord,
     KlineData,
 )
+
+from stock.config import (
+    CONFIG_DIR,
+    CACHE_DIR,
+    DATA_DIR,
+)

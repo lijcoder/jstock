@@ -33,10 +33,10 @@ from stock.models import (
 )
 
 
+from stock.config import XUEQIU_CACHE_DIR, XUEQIU_TOKEN_FILE, XUEQIU_TOKEN_LOCK
+
+
 # ============ 常量定义 ============
-CACHE_DIR = os.path.expanduser("~/.cache/xq_stock")
-CACHE_FILE = os.path.join(CACHE_DIR, "xq_token")
-LOCK_FILE = os.path.join(CACHE_DIR, ".token.lock")
 TOKEN_MAX_AGE = 6 * 60 * 60  # Token有效期6小时
 
 USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -45,7 +45,8 @@ USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36
 # ============ 工具函数 ============
 def _ensure_dir():
     """确保目录存在"""
-    os.makedirs(CACHE_DIR, exist_ok=True)
+    from stock.config import ensure_dirs
+    ensure_dirs()
 
 
 def _convert_timestamp(timestamp_ms: int) -> str:
@@ -65,11 +66,11 @@ def _read_cache() -> tuple[Optional[str], Optional[str], bool]:
     """
     读取缓存的Token和Cookies，返回 (token, cookie_str, is_valid)
     """
-    if not os.path.exists(CACHE_FILE):
+    if not os.path.exists(XUEQIU_TOKEN_FILE):
         return None, None, False
 
     try:
-        with open(CACHE_FILE, 'r') as f:
+        with open(XUEQIU_TOKEN_FILE, 'r') as f:
             data = json.load(f)
 
         token = data.get('token')
@@ -91,7 +92,7 @@ def _write_cache(token: str, cookie_str: str = None, is_valid: bool = True):
     """写入Token到缓存"""
     try:
         _ensure_dir()
-        with open(CACHE_FILE, 'w') as f:
+        with open(XUEQIU_TOKEN_FILE, 'w') as f:
             json.dump({
                 'token': token,
                 'cookie_str': cookie_str,
@@ -159,7 +160,7 @@ def _get_cookies() -> tuple[str, str]:
 
     # 加锁
     _ensure_dir()
-    lock_fd = open(LOCK_FILE, 'w')
+    lock_fd = open(XUEQIU_TOKEN_LOCK, 'w')
 
     try:
         # 非阻塞锁，最多等10秒
@@ -168,7 +169,7 @@ def _get_cookies() -> tuple[str, str]:
         except BlockingIOError:
             lock_fd.close()
             time.sleep(1)
-            lock_fd = open(LOCK_FILE, 'w')
+            lock_fd = open(XUEQIU_TOKEN_LOCK, 'w')
             fcntl.flock(lock_fd, fcntl.LOCK_EX)
 
         try:
