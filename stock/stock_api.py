@@ -44,7 +44,6 @@ def quote(symbol: str, market: str = None) -> StockQuote:
 
 def kline(
     symbol: str,
-    period: str = "day",
     years: int = None,
     months: int = None,
     weeks: int = None,
@@ -53,10 +52,9 @@ def kline(
     end: str = None,
     market: str = None,
 ) -> KlineData:
-    """获取K线数据"""
+    """获取K线数据（日K）"""
     return _get_api().kline(
         symbol,
-        period=period,
         years=years,
         months=months,
         weeks=weeks,
@@ -91,17 +89,12 @@ class StockAPI:
         q = api.quote("601398")
         print(q.name, q.current)
         
-        # 获取K线 - 按时间范围
-        k = api.kline("601398", years=5)      # 最近5年
-        k = api.kline("601398", months=12)     # 最近12个月
-        k = api.kline("601398", weeks=20)      # 最近20周
+        # 获取日K线
         k = api.kline("601398", days=30)       # 最近30天
-        
-        # 获取K线 - 日期范围
-        k = api.kline("601398", start="2025-01-01", end="2025-12-31")
-        
-        # 获取K线 - 周期 + 时间范围
-        k = api.kline("601398", period="month", years=2)    # 月K线，最近2年
+        k = api.kline("601398", weeks=2)      # 最近2周
+        k = api.kline("601398", months=6)     # 最近6个月
+        k = api.kline("601398", years=3)      # 最近3年
+        k = api.kline("601398", start="2025-01-01", end="2025-12-31")  # 日期范围
     """
 
     def __init__(self, primary: str = "xq"):
@@ -138,7 +131,6 @@ class StockAPI:
     def kline(
         self,
         symbol: str,
-        period: str = "day",
         years: int = None,
         months: int = None,
         weeks: int = None,
@@ -148,10 +140,9 @@ class StockAPI:
         market: str = None,
     ) -> KlineData:
         """
-        获取K线数据
+        获取日K线数据
         
         :param symbol: 股票代码
-        :param period: 周期，day/week/month/quarter/year，默认 day
         :param years: 最近N年
         :param months: 最近N月
         :param weeks: 最近N周
@@ -161,12 +152,11 @@ class StockAPI:
         :param market: 指定市场
         
         使用示例:
-            kline("601398", years=5)           # 最近5年
-            kline("601398", months=12)         # 最近12个月
-            kline("601398", weeks=20)          # 最近20周
-            kline("601398", days=30)           # 最近30天
+            kline("601398", days=30)       # 最近30天
+            kline("601398", weeks=2)        # 最近2周
+            kline("601398", months=6)       # 最近6个月
+            kline("601398", years=3)        # 最近3年
             kline("601398", start="2025-01-01", end="2025-12-31")
-            kline("601398", period="month")    # 月K线，默认5年
         """
         # 规范化代码
         raw_symbol = symbol
@@ -176,19 +166,16 @@ class StockAPI:
         # 确定时间范围
         if days is not None:
             years = days / 365
-            period = "day"
         elif weeks is not None:
             years = weeks / 52
-            period = "week"
         elif months is not None:
             years = months / 12
-            period = "month"
         elif years is None:
             years = 5  # 默认5年
         
         # 调用数据源
         if self.primary == "xq":
-            return self.xq.kline(symbol, period, years, start, end)
+            return self.xq.kline(symbol, years, start, end)
         
         # THS fallback
         return ths_kline(raw_symbol, market, years, start, end)

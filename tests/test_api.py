@@ -71,13 +71,6 @@ def test_kline():
     if k.records:
         print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
 
-    # 周期 + 时间范围
-    print("\n[周期 + 时间范围]")
-    k = api.kline("600519", period="month", years=2)
-    print(f"  ✅ 月K线(2年): {k.symbol} 共 {len(k.records)} 条")
-    for r in k.records[-5:]:
-        print(f"     {r.timestamp}: 收={r.close}")
-
     # 便捷函数
     print("\n[便捷函数]")
     k = kline("000001", days=60)

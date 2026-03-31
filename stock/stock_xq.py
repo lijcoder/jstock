@@ -312,16 +312,14 @@ class XueqiuClient:
     def kline(
         self,
         symbol: str,
-        period: str = "day",
         years: float = 5,
         start: str = None,
         end: str = None,
     ) -> KlineData:
         """
-        获取K线数据
+        获取日K线数据
         
         :param symbol: 股票代码（已规范化）
-        :param period: 周期，day/week/month/quarter/year
         :param years: 最近N年（支持小数）
         :param start: 开始日期 YYYY-MM-DD
         :param end: 结束日期 YYYY-MM-DD
@@ -342,32 +340,14 @@ class XueqiuClient:
             
             # 计算天数
             days = (end_dt - start_dt).days + 1
-            if period == "day":
-                count = -math.ceil(days * 1.2)  # 多取20%防止周末问题
-            elif period == "week":
-                count = -math.ceil(days / 7 * 1.2)
-            elif period == "month":
-                count = -math.ceil(days / 30 * 1.2)
-            else:
-                count = -math.ceil(days * 1.2)
-            
-            count = max(count, -2500)  # 最多取2500条
+            count = -math.ceil(days * 1.2)  # 多取20%防止周末问题
+            count = max(count, -2500)
             start_ts = int(start_dt.timestamp() * 1000)
         elif years:
             # 使用年数
             days = int(years * 365)
-            if period == "day":
-                count = -math.ceil(days * 1.2)
-            elif period == "week":
-                count = -math.ceil(days / 7 * 1.2)
-            elif period == "month":
-                count = -math.ceil(days / 30 * 1.2)
-            elif period == "quarter":
-                count = -math.ceil(days / 91 * 1.2)
-            else:
-                count = -math.ceil(days * 1.2)
-            
-            count = max(count, -2500)  # 最多取2500条
+            count = -math.ceil(days * 1.2)
+            count = max(count, -2500)
         else:
             # 默认5年
             count = -1250
@@ -376,7 +356,7 @@ class XueqiuClient:
         params = {
             "symbol": symbol,
             "begin": str(end_ts),
-            "period": period,
+            "period": "day",
             "type": "before",
             "count": str(count),
         }
@@ -384,12 +364,12 @@ class XueqiuClient:
         data = self._request(url, params)
 
         if 'data' not in data or not data['data']:
-            return KlineData(symbol=symbol, period=period, records=[])
+            return KlineData(symbol=symbol, period="day", records=[])
 
         cols = data["data"].get("column", [])
         items = data["data"].get("item", [])
         if not items:
-            return KlineData(symbol=symbol, period=period, records=[])
+            return KlineData(symbol=symbol, period="day", records=[])
 
         idx = {col: i for i, col in enumerate(cols)}
 
@@ -414,7 +394,7 @@ class XueqiuClient:
             start_date = datetime.fromtimestamp(start_ts / 1000).date()
             records = [r for r in records if r.timestamp and datetime.strptime(r.timestamp, "%Y-%m-%d").date() >= start_date]
 
-        return KlineData(symbol=symbol, period=period, records=records)
+        return KlineData(symbol=symbol, period="day", records=records)
 
 
 # ============ 便捷函数 ============
@@ -440,10 +420,10 @@ def stock_shares(symbol: str, market: str = None) -> SharesHistory:
     return _get_client().stock_shares(symbol, market)
 
 
-def kline(symbol: str, period: str = "day", years: int = 5, start: str = None, end: str = None, market: str = None) -> KlineData:
-    """获取K线数据"""
+def kline(symbol: str, years: int = 5, start: str = None, end: str = None, market: str = None) -> KlineData:
+    """获取日K线数据"""
     symbol = normalize_symbol(symbol, market)
-    return _get_client().kline(symbol, period, years, start, end)
+    return _get_client().kline(symbol, years, start, end)
 
 
 # ============ 主程序 ============
