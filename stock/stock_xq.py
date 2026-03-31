@@ -309,17 +309,19 @@ class XueqiuClient:
 
         return SharesHistory(symbol=symbol, records=records)
 
-    def kline(self, symbol: str, start: str = None, end: str = None) -> KlineData:
+    def kline(self, symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
         """
         获取日K线数据
         
-        :param symbol: 股票代码（已规范化）
+        :param symbol: 股票代码，如 601398、SH601398
+        :param market: 市场，SH/SZ，默认自动判断
         :param start: 开始日期 YYYY-MM-DD，默认最近1年
         :param end: 结束日期 YYYY-MM-DD，默认今天
         """
         from datetime import datetime, timedelta
         import math
         
+        symbol = normalize_symbol(symbol, market)
         now = datetime.now()
         end_ts = int(now.timestamp() * 1000)
         
@@ -378,6 +380,21 @@ class XueqiuClient:
         return KlineData(symbol=symbol, period="day", records=records)
 
 
+    # ============ API 别名 ============
+    
+    def quote(self, symbol: str, market: str = None) -> StockQuote:
+        """获取股票行情"""
+        return self.stock_quote(symbol, market)
+
+    def bonus(self, symbol: str, market: str = None) -> BonusHistory:
+        """获取分红历史"""
+        return self.stock_bonus(symbol, market)
+
+    def shares(self, symbol: str, market: str = None) -> SharesHistory:
+        """获取股本变动"""
+        return self.stock_shares(symbol, market)
+
+
 # ============ 便捷函数 ============
 _client = None
 
@@ -401,10 +418,9 @@ def stock_shares(symbol: str, market: str = None) -> SharesHistory:
     return _get_client().stock_shares(symbol, market)
 
 
-def kline(symbol: str, start: str = None, end: str = None, market: str = None) -> KlineData:
+def kline(symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
     """获取日K线数据"""
-    symbol = normalize_symbol(symbol, market)
-    return _get_client().kline(symbol, start, end)
+    return _get_client().kline(symbol, market, start, end)
 
 
 # ============ 主程序 ============

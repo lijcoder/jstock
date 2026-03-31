@@ -6,7 +6,7 @@ Desc: 股票数据统一API - 门面模式
 """
 
 from stock import models
-from stock.stock_xq import XueqiuClient, normalize_symbol
+from stock.stock_xq import XueqiuClient
 
 # 导出
 __all__ = ['quote', 'kline', 'bonus', 'shares', 'StockAPI']
@@ -33,9 +33,9 @@ def quote(symbol: str, market: str = None) -> StockQuote:
     return _get_api().quote(symbol, market)
 
 
-def kline(symbol: str, start: str = None, end: str = None, market: str = None) -> KlineData:
+def kline(symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
     """获取K线数据"""
-    return _get_api().kline(symbol, start, end, market)
+    return _get_api().kline(symbol, market, start, end)
 
 
 def bonus(symbol: str, market: str = None) -> BonusHistory:
@@ -60,7 +60,7 @@ class StockAPI:
         
         q = api.quote("601398")
         k = api.kline("601398")
-        k = api.kline("601398", start="2025-01-01", end="2025-12-31")
+        k = api.kline("601398", market="SH", start="2025-01-01", end="2025-12-31")
     """
 
     def __init__(self):
@@ -73,28 +73,27 @@ class StockAPI:
         return self._xq
 
     def quote(self, symbol: str, market: str = None) -> StockQuote:
-        symbol = normalize_symbol(symbol, market)
-        return self.xq.stock_quote(symbol)
+        """获取股票行情"""
+        return self.xq.quote(symbol, market)
 
-    def bonus(self, symbol: str, market: str = None) -> BonusHistory:
-        symbol = normalize_symbol(symbol, market)
-        return self.xq.stock_bonus(symbol)
-
-    def shares(self, symbol: str, market: str = None) -> SharesHistory:
-        symbol = normalize_symbol(symbol, market)
-        return self.xq.stock_shares(symbol)
-
-    def kline(self, symbol: str, start: str = None, end: str = None, market: str = None) -> KlineData:
+    def kline(self, symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
         """
         获取日K线数据
         
-        :param symbol: 股票代码
+        :param symbol: 股票代码，如 601398、SH601398
+        :param market: 市场，SH/SZ，默认自动判断
         :param start: 开始日期 YYYY-MM-DD，默认最近1年
         :param end: 结束日期 YYYY-MM-DD，默认今天
-        :param market: 指定市场
         """
-        symbol = normalize_symbol(symbol, market)
-        return self.xq.kline(symbol, start, end)
+        return self.xq.kline(symbol, market, start, end)
+
+    def bonus(self, symbol: str, market: str = None) -> BonusHistory:
+        """获取分红历史"""
+        return self.xq.bonus(symbol, market)
+
+    def shares(self, symbol: str, market: str = None) -> SharesHistory:
+        """获取股本变动"""
+        return self.xq.shares(symbol, market)
 
 
 # ============ 主程序 ============
