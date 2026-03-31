@@ -45,21 +45,48 @@ def test_kline():
 
     api = StockAPI()
 
-    # 日K线
-    print("\n[日K线 - 便捷函数]")
-    for code in ["601398", "000001"]:
-        k = kline(code, count=-5)
-        print(f"  ✅ {k.symbol} 最近{len(k.records)}天:")
-        for r in k.records:
-            vol = f"{r.volume / 100000000:.2f}亿" if r.volume else "0"
-            print(f"     {r.timestamp}: 开={r.open}, 收={r.close}, 高={r.high}, 低={r.low}, 量={vol}")
+    # 默认最近5年
+    print("\n[默认最近5年]")
+    k = api.kline("601398")
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+    print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
+
+    # 最近N年
+    print("\n[最近3年]")
+    k = api.kline("601398", years=3)
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+    print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
+
+    # 日期范围
+    print("\n[2025全年]")
+    k = api.kline("601398", start="2025-01-01", end="2025-12-31")
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+    if k.records:
+        print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
+
+    # 指定开始日期
+    print("\n[从2025-01-01至今]")
+    k = api.kline("601398", start="2025-01-01")
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
 
     # 周K线
-    print("\n[周K线]")
-    k = api.kline("600519", period="week", count=-10)
-    print(f"  ✅ {k.symbol} 最近{len(k.records)}周:")
+    print("\n[周K线 - 最近2年]")
+    k = api.kline("600519", period="week", years=2)
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
     for r in k.records[-5:]:
-        print(f"     {r.timestamp}: 收={r.close} ({r.percent:+.2f}%)")
+        print(f"     {r.timestamp}: 收={r.close}")
+
+    # 月K线
+    print("\n[月K线 - 最近2年]")
+    k = api.kline("600519", period="month", years=2)
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+    for r in k.records[-5:]:
+        print(f"     {r.timestamp}: 收={r.close}")
+
+    # 便捷函数
+    print("\n[便捷函数 kline()]")
+    k = kline("000001", years=1)
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
 
 
 def test_bonus():
