@@ -323,22 +323,23 @@ class XueqiuClient:
         
         symbol = normalize_symbol(symbol, market)
         now = datetime.now()
-        end_ts = int(now.timestamp() * 1000)
         
-        # 解析日期
-        start_dt = datetime.strptime(start, "%Y-%m-%d") if start else now - timedelta(days=365)
+        # 解析日期，end 默认今天，start 默认1年前
         end_dt = datetime.strptime(end, "%Y-%m-%d") if end else now
+        start_dt = datetime.strptime(start, "%Y-%m-%d") if start else now - timedelta(days=365)
         
-        # 计算天数，多取20%防止周末问题
+        # begin 是结束时间
+        begin_ts = int(end_dt.timestamp() * 1000)
+        
+        # 计算需要获取的天数，多取20%防止周末问题
         days = (end_dt - start_dt).days + 1
         count = -math.ceil(days * 1.2)
         count = max(count, -2500)  # 最多2500条
-        start_ts = int(start_dt.timestamp() * 1000)
 
         url = "https://stock.xueqiu.com/v5/stock/chart/kline.json"
         params = {
             "symbol": symbol,
-            "begin": str(end_ts),
+            "begin": str(begin_ts),
             "period": "day",
             "type": "before",
             "count": str(count),
@@ -373,9 +374,9 @@ class XueqiuClient:
         ]
 
         # 按日期过滤
-        if start_ts:
-            start_date = datetime.fromtimestamp(start_ts / 1000).date()
-            records = [r for r in records if r.timestamp and datetime.strptime(r.timestamp, "%Y-%m-%d").date() >= start_date]
+        start_ts = int(start_dt.timestamp() * 1000)
+        start_date = start_dt.date()
+        records = [r for r in records if r.timestamp and datetime.strptime(r.timestamp, "%Y-%m-%d").date() >= start_date]
 
         return KlineData(symbol=symbol, period="day", records=records)
 
@@ -421,27 +422,3 @@ def stock_shares(symbol: str, market: str = None) -> SharesHistory:
 def kline(symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
     """获取日K线数据"""
     return _get_client().kline(symbol, market, start, end)
-
-
-# ============ 主程序 ============
-if __name__ == "__main__":
-    client = XueqiuClient()
-
-    print("=" * 50)
-    print("测试雪球API")
-    print("=" * 50)
-
-    # 股票行情
-    print("\n📊 股票行情:")
-    for code in ["601398", "600519", "000001"]:
-        q = client.stock_quote(code)
-        print(f"  {q.symbol} {q.name}: 现价={q.current}, 涨跌={q.chg}({q.percent}%)")
-
-    # 分红历史
-    print("\n💰 分红历史:")
-    b = client.stock_bonus("601398")
-    print(f"  共 {len(b.records)} 条")
-    for r in b.records[:3]:
-        print(f"  {r.dividend_year}: {r.plan_explain}")
-
-    print("\n✅ 完成")
