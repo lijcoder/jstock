@@ -309,25 +309,74 @@ class XueqiuClient:
 
         return SharesHistory(symbol=symbol, records=records)
 
-    def stock_kline(
+    def kline(
         self,
         symbol: str,
-        market: str = None,
         period: str = "day",
-        count: int = -250
+        years: int = 5,
+        start: str = None,
+        end: str = None,
     ) -> KlineData:
-        """获取K线数据"""
-        symbol = normalize_symbol(symbol, market)
-        end = int(datetime.now().timestamp() * 1000)
+        """
+        获取K线数据
+        
+        :param symbol: 股票代码（已规范化）
+        :param period: 周期，day/week/month/quarter/year
+        :param years: 最近N年
+        :param start: 开始日期 YYYY-MM-DD
+        :param end: 结束日期 YYYY-MM-DD
+        """
+        from datetime import datetime, timedelta
+        
+        end_ts = int(datetime.now().timestamp() * 1000)
+        
+        # 根据日期范围计算count
+        count = None
+        start_ts = None
+        
+        if start or end:
+            # 使用日期范围
+            start_dt = datetime.strptime(start, "%Y-%m-%d") if start else datetime.now() - timedelta(days=365 * years)
+            end_dt = datetime.strptime(end, "%Y-%m-%d") if end else datetime.now()
+            
+            # 计算天数
+            days = (end_dt - start_dt).days + 1
+            if period == "day":
+                count = max(-days - 50, -2500)
+            elif period == "week":
+                count = max(-days // 7 - 10, -500)
+            elif period == "month":
+                count = max(-days // 30 - 5, -200)
+            else:
+                count = max(-days - 50, -2500)
+            
+            start_ts = int(start_dt.timestamp() * 1000)
+        elif years:
+            # 使用年数
+            if period == "day":
+                count = -years * 250
+            elif period == "week":
+                count = -years * 52
+            elif period == "month":
+                count = -years * 12
+            elif period == "quarter":
+                count = -years * 4
+            else:
+                count = -years * 250
+        else:
+            # 默认5年
+            count = -5 * 250
 
         url = "https://stock.xueqiu.com/v5/stock/chart/kline.json"
-        data = self._request(url, {
+        params = {
             "symbol": symbol,
-            "begin": str(end),
+            "begin": str(end_ts),
             "period": period,
             "type": "before",
             "count": str(count),
-        })
+        }
+
+        data = self._request(url, params)
 
         if 'data' not in data or not data['data']:
             return KlineData(symbol=symbol, period=period, records=[])
@@ -354,6 +403,12 @@ class XueqiuClient:
             )
             for item in items
         ]
+
+        # 按日期过滤
+        if start_ts:
+            start_date = datetime.fromtimestamp(start_ts / 1000).date()
+            records = [r for r in records if r.timestamp and datetime.strptime(r.timestamp, "%Y-%m-%d").date() >= start_date]
+
         return KlineData(symbol=symbol, period=period, records=records)
 
 
@@ -380,8 +435,10 @@ def stock_shares(symbol: str, market: str = None) -> SharesHistory:
     return _get_client().stock_shares(symbol, market)
 
 
-def stock_kline(symbol: str, market: str = None, period: str = "day", count: int = -250) -> KlineData:
-    return _get_client().stock_kline(symbol, market, period, count)
+def kline(symbol: str, period: str = "day", years: int = 5, start: str = None, end: str = None, market: str = None) -> KlineData:
+    """获取K线数据"""
+    symbol = normalize_symbol(symbol, market)
+    return _get_client().kline(symbol, period, years, start, end)
 
 
 # ============ 主程序 ============
