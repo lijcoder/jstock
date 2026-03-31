@@ -313,7 +313,7 @@ class XueqiuClient:
         self,
         symbol: str,
         period: str = "day",
-        years: int = 5,
+        years: float = 5,
         start: str = None,
         end: str = None,
     ) -> KlineData:
@@ -322,11 +322,12 @@ class XueqiuClient:
         
         :param symbol: 股票代码（已规范化）
         :param period: 周期，day/week/month/quarter/year
-        :param years: 最近N年
+        :param years: 最近N年（支持小数）
         :param start: 开始日期 YYYY-MM-DD
         :param end: 结束日期 YYYY-MM-DD
         """
         from datetime import datetime, timedelta
+        import math
         
         end_ts = int(datetime.now().timestamp() * 1000)
         
@@ -342,30 +343,34 @@ class XueqiuClient:
             # 计算天数
             days = (end_dt - start_dt).days + 1
             if period == "day":
-                count = max(-days - 50, -2500)
+                count = -math.ceil(days * 1.2)  # 多取20%防止周末问题
             elif period == "week":
-                count = max(-days // 7 - 10, -500)
+                count = -math.ceil(days / 7 * 1.2)
             elif period == "month":
-                count = max(-days // 30 - 5, -200)
+                count = -math.ceil(days / 30 * 1.2)
             else:
-                count = max(-days - 50, -2500)
+                count = -math.ceil(days * 1.2)
             
+            count = max(count, -2500)  # 最多取2500条
             start_ts = int(start_dt.timestamp() * 1000)
         elif years:
             # 使用年数
+            days = int(years * 365)
             if period == "day":
-                count = -years * 250
+                count = -math.ceil(days * 1.2)
             elif period == "week":
-                count = -years * 52
+                count = -math.ceil(days / 7 * 1.2)
             elif period == "month":
-                count = -years * 12
+                count = -math.ceil(days / 30 * 1.2)
             elif period == "quarter":
-                count = -years * 4
+                count = -math.ceil(days / 91 * 1.2)
             else:
-                count = -years * 250
+                count = -math.ceil(days * 1.2)
+            
+            count = max(count, -2500)  # 最多取2500条
         else:
             # 默认5年
-            count = -5 * 250
+            count = -1250
 
         url = "https://stock.xueqiu.com/v5/stock/chart/kline.json"
         params = {

@@ -45,48 +45,43 @@ def test_kline():
 
     api = StockAPI()
 
-    # 默认最近5年
-    print("\n[默认最近5年]")
-    k = api.kline("601398")
+    # 按时间范围
+    print("\n[按时间范围 - days]")
+    k = api.kline("601398", days=30)
     print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
     print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
 
-    # 最近N年
-    print("\n[最近3年]")
+    print("\n[按时间范围 - weeks]")
+    k = api.kline("601398", weeks=12)
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+
+    print("\n[按时间范围 - months]")
+    k = api.kline("601398", months=6)
+    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+
+    print("\n[按时间范围 - years]")
     k = api.kline("601398", years=3)
     print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
     print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
 
     # 日期范围
-    print("\n[2025全年]")
+    print("\n[日期范围]")
     k = api.kline("601398", start="2025-01-01", end="2025-12-31")
     print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
     if k.records:
         print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
 
-    # 指定开始日期
-    print("\n[从2025-01-01至今]")
-    k = api.kline("601398", start="2025-01-01")
-    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
-
-    # 周K线
-    print("\n[周K线 - 最近2年]")
-    k = api.kline("600519", period="week", years=2)
-    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
-    for r in k.records[-5:]:
-        print(f"     {r.timestamp}: 收={r.close}")
-
-    # 月K线
-    print("\n[月K线 - 最近2年]")
+    # 周期 + 时间范围
+    print("\n[周期 + 时间范围]")
     k = api.kline("600519", period="month", years=2)
-    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+    print(f"  ✅ 月K线(2年): {k.symbol} 共 {len(k.records)} 条")
     for r in k.records[-5:]:
         print(f"     {r.timestamp}: 收={r.close}")
 
     # 便捷函数
-    print("\n[便捷函数 kline()]")
-    k = kline("000001", years=1)
-    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
+    print("\n[便捷函数]")
+    k = kline("000001", days=60)
+    print(f"  ✅ kline(days=60): {k.symbol} 共 {len(k.records)} 条")
 
 
 def test_bonus():
