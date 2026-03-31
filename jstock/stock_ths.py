@@ -94,10 +94,10 @@ class THSClient:
                 
                 records.append(KlineRecord(
                     timestamp=dt.strftime("%Y-%m-%d"),
-                    open=round(open_p, 2),
-                    close=round(close, 2),
-                    high=round(high, 2),
-                    low=round(low, 2),
+                    open=round(open_p, 3),
+                    close=round(close, 3),
+                    high=round(high, 3),
+                    low=round(low, 3),
                     volume=volumn[date_idx],
                     amount=amount,
                     turnover=None,  # 需要流通股本
