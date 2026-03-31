@@ -11,11 +11,7 @@ if __name__ == "__main__" and __package__ is None:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import time
-import json
-from datetime import datetime as dt
-
-from stock.stock_xq import XueqiuClient, _get_cookies, _get_token
+from stock.stock_xq import XueqiuClient, _get_cookies, normalize_symbol
 
 
 def test_token():
@@ -24,29 +20,21 @@ def test_token():
     print("测试 Token 获取")
     print("=" * 50)
     
-    # 测试 _get_token
-    token = _get_token()
-    print(f"Token: {token[:20]}..." if token else "None")
-    
-    # 测试 _get_cookies
     token, cookie_str = _get_cookies()
     print(f"Token: {token[:20]}..." if token else "None")
     print(f"Cookie长度: {len(cookie_str) if cookie_str else 0}")
-    
     print()
 
 
-def test_client_init():
-    """测试客户端初始化"""
+def test_normalize_symbol():
+    """测试股票代码规范化"""
     print("=" * 50)
-    print("测试客户端初始化")
+    print("测试 股票代码规范化")
     print("=" * 50)
     
-    # 默认初始化
-    client = XueqiuClient()
-    print(f"Token: {client.token[:20] if client.token else 'None'}...")
-    print(f"Cookie长度: {len(client.cookie_str) if client.cookie_str else 0}")
-    print(f"Headers: {list(client._headers.keys())}")
+    tests = ["601398", "SH601398", "sh601398", "000001", "SZ000001", "300001"]
+    for code in tests:
+        print(f"  {code:12} -> {normalize_symbol(code)}")
     print()
 
 
@@ -58,20 +46,19 @@ def test_stock_quote():
     
     client = XueqiuClient()
     
-    # 测试多个股票
-    symbols = ["SH601398", "SH600519", "SZ000001"]
+    # 支持简化代码
+    codes = ["601398", "600519", "000001"]
     
-    for symbol in symbols:
+    for code in codes:
         try:
-            quote = client.stock_quote(symbol)
-            print(f"✅ {symbol} ({quote.name})")
-            print(f"   现价: {quote.current}, 涨跌: {quote.chg} ({quote.percent}%)")
-            print(f"   市盈率: {quote.pe_ttm}, 市净率: {quote.pb}")
-            print(f"   成交量: {quote.volume / 100000000:.2f}亿")
+            q = client.stock_quote(code)
+            print(f"✅ {q.symbol} ({q.name})")
+            print(f"   现价: {q.current}, 涨跌: {q.chg} ({q.percent}%)")
+            print(f"   市盈率: {q.pe_ttm}, 市净率: {q.pb}")
+            print(f"   成交量: {q.volume / 100000000:.2f}亿")
             print()
         except Exception as e:
-            print(f"❌ {symbol} 失败: {e}")
-            print()
+            print(f"❌ {code} 失败: {e}\n")
 
 
 def test_stock_bonus():
@@ -82,19 +69,15 @@ def test_stock_bonus():
     
     client = XueqiuClient()
     
-    # 测试多个股票
-    symbols = ["SH601398", "SH600519"]
-    
-    for symbol in symbols:
+    for code in ["601398", "600519"]:
         try:
-            bonus = client.stock_bonus(symbol)
-            print(f"✅ {symbol} - 共 {len(bonus)} 条记录")
-            for i, record in enumerate(bonus.records[:3]):
-                print(f"   [{i+1}] {record.dividend_year}: {record.plan_explain}")
+            b = client.stock_bonus(code)
+            print(f"✅ {code} - 共 {len(b.records)} 条记录")
+            for i, r in enumerate(b.records[:3]):
+                print(f"   [{i+1}] {r.dividend_year}: {r.plan_explain}")
             print()
         except Exception as e:
-            print(f"❌ {symbol} 失败: {e}")
-            print()
+            print(f"❌ {code} 失败: {e}\n")
 
 
 def test_stock_shares():
@@ -105,20 +88,15 @@ def test_stock_shares():
     
     client = XueqiuClient()
     
-    # 测试多个股票
-    symbols = ["SH601398", "SH600519"]
-    
-    for symbol in symbols:
+    for code in ["601398", "600519"]:
         try:
-            shares = client.stock_shares(symbol)
-            print(f"✅ {symbol} - 共 {len(shares)} 条记录")
-            for i, record in enumerate(shares.records[:3]):
-                print(f"   [{i+1}] {record.chg_date}: {record.total_shares}")
-                print(f"       变动原因: {record.chg_reason}")
+            s = client.stock_shares(code)
+            print(f"✅ {code} - 共 {len(s.records)} 条记录")
+            for i, r in enumerate(s.records[:3]):
+                print(f"   [{i+1}] {r.chg_date}: {r.total_shares}")
             print()
         except Exception as e:
-            print(f"❌ {symbol} 失败: {e}")
-            print()
+            print(f"❌ {code} 失败: {e}\n")
 
 
 def test_kline():
@@ -129,20 +107,16 @@ def test_kline():
     
     client = XueqiuClient()
     
-    # 测试多个股票
-    symbols = ["SH601398", "SH600519", "SZ000001"]
-    
-    for symbol in symbols:
+    for code in ["601398", "000001"]:
         try:
-            kline = client.stock_kline(symbol, period="day", count=-5)
-            print(f"✅ {symbol} - 共 {len(kline)} 条数据")
-            for r in kline.records:
-                vol_str = f"{r.volume / 100000000:.2f}亿" if r.volume else "0"
-                print(f"   {r.timestamp}: 开={r.open}, 收={r.close}, 高={r.high}, 低={r.low}, 量={vol_str}")
+            k = client.stock_kline(code, period="day", count=-5)
+            print(f"✅ {code} - 共 {len(k.records)} 条数据")
+            for r in k.records:
+                vol = f"{r.volume / 100000000:.2f}亿" if r.volume else "0"
+                print(f"   {r.timestamp}: 开={r.open}, 收={r.close}, 高={r.high}, 低={r.low}, 量={vol}")
             print()
         except Exception as e:
-            print(f"❌ {symbol} 失败: {e}")
-            print()
+            print(f"❌ {code} 失败: {e}\n")
 
 
 def test_all():
@@ -152,7 +126,7 @@ def test_all():
     print("=" * 60 + "\n")
     
     test_token()
-    test_client_init()
+    test_normalize_symbol()
     test_stock_quote()
     test_stock_bonus()
     test_stock_shares()
