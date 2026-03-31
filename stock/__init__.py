@@ -10,6 +10,14 @@ from stock.models import (
     KlineData,
 )
 
+from stock.stock_api import (
+    StockAPI,
+    quote,
+    kline,
+    bonus,
+    shares,
+)
+
 from stock.config import (
     CONFIG_DIR,
     CACHE_DIR,
