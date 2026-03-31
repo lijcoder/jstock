@@ -49,6 +49,50 @@ def _ensure_dir():
     ensure_dirs()
 
 
+def normalize_symbol(code: str, market: str = None) -> str:
+    """
+    规范化股票代码，自动添加市场前缀
+    
+    :param code: 股票代码，支持 601398、SH601398、sh601398 等格式
+    :param market: 指定市场，可选 'SH'/'SZ'，如果为 None 则自动判断
+    :return: 带前缀的代码，如 'SH601398'
+    
+    自动判断规则:
+        - 6、5、8开头 → SH (上海)
+        - 0、3开头 → SZ (深圳)
+    """
+    # 去除空格
+    code = code.strip()
+    
+    # 如果已经有前缀，提取前缀和代码
+    if len(code) > 6 and code[:2].upper() in ('SH', 'SZ'):
+        return code[:2].upper() + code[2:]
+    
+    # 去除已有的前缀
+    code = code.lstrip('SHshSZsz')
+    
+    # 自动判断市场
+    if market is None:
+        first_digit = code[0] if code else ''
+        if first_digit in ('6', '5', '8'):
+            market = 'SH'
+        else:
+            market = 'SZ'
+    
+    return f"{market.upper()}{code}"
+
+
+def parse_symbol(symbol: str) -> tuple[str, str]:
+    """
+    解析股票代码，返回 (market, code)
+    
+    :param symbol: 带前缀的代码，如 'SH601398' 或 '601398'
+    :return: (市场, 代码)，如 ('SH', '601398')
+    """
+    normalized = normalize_symbol(symbol)
+    return normalized[:2], normalized[2:]
+
+
 def _convert_timestamp(timestamp_ms: int) -> str:
     """时间戳转换为字符串时间"""
     timestamp_s = timestamp_ms / 1000
@@ -280,13 +324,15 @@ class XueqiuClient:
 
     # ============ 公开API ============
 
-    def stock_quote(self, symbol: str) -> StockQuote:
+    def stock_quote(self, symbol: str, market: str = None) -> StockQuote:
         """
         获取股票行情
         
-        :param symbol: 证券代码，如 SH601398
+        :param symbol: 证券代码，如 601398、SH601398，自动判断市场
+        :param market: 指定市场，可选 'SH'/'SZ'，默认自动判断
         :return: StockQuote 对象
         """
+        symbol = normalize_symbol(symbol, market)
         url = f"https://stock.xueqiu.com/v5/stock/quote.json?symbol={symbol}&extend=detail"
         json_data = self._request(url)
 
@@ -330,13 +376,15 @@ class XueqiuClient:
         
         return StockQuote(**quote_dict)
 
-    def stock_bonus(self, symbol: str) -> BonusHistory:
+    def stock_bonus(self, symbol: str, market: str = None) -> BonusHistory:
         """
         获取分红历史
         
-        :param symbol: 证券代码，如 SH601398
+        :param symbol: 证券代码，如 601398、SH601398，自动判断市场
+        :param market: 指定市场，可选 'SH'/'SZ'，默认自动判断
         :return: BonusHistory 对象
         """
+        symbol = normalize_symbol(symbol, market)
         url = f"https://stock.xueqiu.com/v5/stock/f10/cn/bonus.json"
         params = {"symbol": symbol, "size": "1000", "page": "1", "extend": "true"}
 
@@ -364,13 +412,15 @@ class XueqiuClient:
             records=records
         )
 
-    def stock_shares(self, symbol: str) -> SharesHistory:
+    def stock_shares(self, symbol: str, market: str = None) -> SharesHistory:
         """
         获取股本变动历史
         
-        :param symbol: 证券代码，如 SH601398
+        :param symbol: 证券代码，如 601398、SH601398，自动判断市场
+        :param market: 指定市场，可选 'SH'/'SZ'，默认自动判断
         :return: SharesHistory 对象
         """
+        symbol = normalize_symbol(symbol, market)
         url = f"https://stock.xueqiu.com/v5/stock/f10/cn/shareschg.json"
         params = {"symbol": symbol, "count": "200", "extend": "true"}
 
@@ -405,15 +455,17 @@ class XueqiuClient:
         
         return SharesHistory(symbol=symbol, records=records)
 
-    def stock_kline(self, symbol: str, period: str = "day", count: int = -250) -> KlineData:
+    def stock_kline(self, symbol: str, market: str = None, period: str = "day", count: int = -250) -> KlineData:
         """
         获取K线数据
         
-        :param symbol: 证券代码，如 SH601398
+        :param symbol: 证券代码，如 601398、SH601398，自动判断市场
+        :param market: 指定市场，可选 'SH'/'SZ'，默认自动判断
         :param period: 周期，day/week/month/quarter/year
         :param count: 数据条数，负数向前，正数向后
         :return: KlineData 对象
         """
+        symbol = normalize_symbol(symbol, market)
         from datetime import datetime as dt
 
         # 设置时间范围
@@ -474,24 +526,24 @@ def _get_client() -> XueqiuClient:
     return _client
 
 
-def stock_quote(symbol: str) -> StockQuote:
-    """获取股票行情"""
-    return _get_client().stock_quote(symbol)
+def stock_quote(symbol: str, market: str = None) -> StockQuote:
+    """获取股票行情，支持简化代码如 601398"""
+    return _get_client().stock_quote(symbol, market)
 
 
-def stock_bonus(symbol: str) -> BonusHistory:
-    """获取分红历史"""
-    return _get_client().stock_bonus(symbol)
+def stock_bonus(symbol: str, market: str = None) -> BonusHistory:
+    """获取分红历史，支持简化代码如 601398"""
+    return _get_client().stock_bonus(symbol, market)
 
 
-def stock_shares(symbol: str) -> SharesHistory:
-    """获取股本变动"""
-    return _get_client().stock_shares(symbol)
+def stock_shares(symbol: str, market: str = None) -> SharesHistory:
+    """获取股本变动，支持简化代码如 601398"""
+    return _get_client().stock_shares(symbol, market)
 
 
-def stock_kline(symbol: str, period: str = "day", count: int = -250) -> KlineData:
-    """获取K线数据"""
-    return _get_client().stock_kline(symbol, period, count)
+def stock_kline(symbol: str, market: str = None, period: str = "day", count: int = -250) -> KlineData:
+    """获取K线数据，支持简化代码如 601398"""
+    return _get_client().stock_kline(symbol, market, period, count)
 
 
 # ============ 主程序 ============
