@@ -85,12 +85,13 @@ class StockAPI:
         dates = [r.chg_date for r in shares_data.records]
         float_shares = [r.float_shares_ashare for r in shares_data.records]
         
-        # 为每条K线计算换手率
+        # 为每条K线计算换手率和流通股本
         for record in kdata.records:
             if record.timestamp and record.volume:
                 # 找到 <= record.timestamp 的最近股本
                 pos = bisect_right(dates, record.timestamp) - 1
                 if pos >= 0 and float_shares[pos]:
+                    record.float_shares = float_shares[pos]
                     record.turnover = round(record.volume / float_shares[pos] * 100, 4)
         
         return kdata

@@ -150,6 +150,7 @@ class KlineRecord:
     volume: Optional[float] = None                 # 成交量
     amount: Optional[float] = None                # 成交额
     turnover: Optional[float] = None              # 换手率(%)
+    float_shares: Optional[int] = None             # 流通股本（股）
     chg: Optional[float] = None                   # 涨跌
     percent: Optional[float] = None               # 涨跌幅(%)
 

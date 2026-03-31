@@ -63,6 +63,7 @@ def cmd_kline(args):
                     "low": r.low,
                     "volume": r.volume,
                     "amount": r.amount,
+                    "float_shares": r.float_shares,
                     "turnover": r.turnover,
                     "change": r.chg,
                     "percent": r.percent,
