@@ -10,15 +10,17 @@ if __name__ == "__main__" and __package__ is None:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
+import re
 from datetime import datetime
-from stock.models import KlineData, KlineRecord
 
 import requests
+
+from stock.models import KlineData, KlineRecord
 
 
 # ============ 工具函数 ============
 def normalize_symbol(code: str, market: str = None) -> tuple:
-    """规范化股票代码，返回 (code, market)"""
+    """规范化股票代码"""
     code = code.strip().lstrip('SHshSZsz')
     if market is None:
         market = 'sh' if code[0] in ('6', '5', '8') else 'sz'
@@ -43,14 +45,15 @@ class THSClient:
             "Referer": "https://q.10jqka.com.cn/"
         }, timeout=15)
         
-        import re
-        data = eval(re.search(r'\((.*)\)', resp.text, re.DOTALL).group(1))
+        m = re.search(r'\((\{.*\})\)', resp.text, re.DOTALL)
+        data = eval(m.group(1))
         
         dates = data['dates'].split(',')
         price = [int(x) for x in data['price'].split(',')]
         volumn = [int(x) for x in data['volumn'].split(',')]
         
         records = []
+        prev_close = None
         date_idx = 0
         
         for year, count in data['sortYear']:
@@ -63,6 +66,11 @@ class THSClient:
                 
                 # 日期过滤
                 if start_dt and dt < start_dt:
+                    # 仍需计算 prev_close
+                    offset = date_idx * 4
+                    low = price[offset] / 100
+                    close = low + price[offset + 3] / 100
+                    prev_close = close
                     date_idx += 1
                     continue
                 if end_dt and dt > end_dt:
@@ -72,32 +80,48 @@ class THSClient:
                 # 解析价格: [low, open-low, high-low, close-low] / 100
                 offset = date_idx * 4
                 low = price[offset] / 100
+                open_p = low + price[offset + 1] / 100
+                high = low + price[offset + 2] / 100
+                close = low + price[offset + 3] / 100
+                
+                # 计算涨跌和涨跌幅
+                chg = round(close - prev_close, 2) if prev_close else None
+                percent = round((close - prev_close) / prev_close * 100, 2) if prev_close else None
+                
+                # 成交额估算 = 均价 × 成交量
+                amount = round((open_p + close) / 2 * volumn[date_idx], 2)
                 
                 records.append(KlineRecord(
                     timestamp=dt.strftime("%Y-%m-%d"),
-                    open=round(low + price[offset + 1] / 100, 2),
-                    close=round(low + price[offset + 3] / 100, 2),
-                    high=round(low + price[offset + 2] / 100, 2),
+                    open=round(open_p, 2),
+                    close=round(close, 2),
+                    high=round(high, 2),
                     low=round(low, 2),
                     volume=volumn[date_idx],
-                    amount=None, turnover=None, chg=None, percent=None,
+                    amount=amount,
+                    turnover=None,  # 需要流通股本
+                    chg=chg,
+                    percent=percent,
                 ))
+                
+                prev_close = close
                 date_idx += 1
         
         return KlineData(symbol=out_symbol, period="day", records=records)
 
 
 # ============ 便捷函数 ============
-_client = None
-
-
 def kline(symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
     return THSClient().kline(symbol, market, start, end)
 
 
 # ============ 主程序 ============
 if __name__ == "__main__":
-    k = kline("601398", start="2026-01-01", end="2026-03-31")
+    k = kline("601398", start="2026-03-01", end="2026-03-31")
     print(f"SH601398: {len(k.records)} 条")
-    for r in k.records[-5:]:
-        print(f"  {r.timestamp}: {r.open:.2f}")
+    print(f"{'日期':<12} {'开盘':>7} {'收盘':>7} {'涨跌':>7} {'涨幅':>8} {'成交额':>10}")
+    for r in k.records:
+        pct = f"{r.percent:+.2f}%" if r.percent else "N/A"
+        amt = f"{r.amount/100000000:.2f}亿" if r.amount else "N/A"
+        chg = f"{r.chg:+.2f}" if r.chg else "N/A"
+        print(f"{r.timestamp:<12} {r.open:>7.2f} {r.close:>7.2f} {chg:>7} {pct:>8} {amt:>10}")
