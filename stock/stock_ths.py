@@ -2,140 +2,179 @@
 # -*- coding:utf-8 -*-
 """
 Date: 2026-03-31
-Updated: 2026-03-31
-Desc: 同花顺日K线数据获取
+Desc: 同花顺API客户端
 """
 
-# 直接运行时添加项目根目录到路径
 if __name__ == "__main__" and __package__ is None:
     import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
-import requests
-import json
+import math
 import re
-from typing import Optional
+from datetime import datetime
+
+import requests
+
 from stock.models import KlineData, KlineRecord
 
 
-def get_daily_kline(code: str, market: str = "sh") -> KlineData:
-    """
-    获取同花顺日K线数据
+# ============ 工具函数 ============
+def normalize_symbol(code: str, market: str = None) -> tuple:
+    """规范化股票代码，返回 (thsh, market)"""
+    code = code.strip()
     
-    :param code: 股票代码，如 601398
-    :param market: 市场，sh(沪市) 或 sz(深市)
-    :return: KlineData 对象
-    """
+    # 已有前缀
+    if len(code) > 6 and code[:2].upper() in ('SH', 'SZ'):
+        code = code[2:]
+    
+    code = code.lstrip('SHshSZsz')
+    
+    if market is None:
+        market = 'sh' if code[0] in ('6', '5', '8') else 'sz'
+    
+    return code, market.lower()
+
+
+def _fetch_data(code: str, market: str) -> dict:
+    """获取K线原始数据"""
     url = f"https://d.10jqka.com.cn/v6/line/{market}_{code}/01/all.js"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        "User-Agent": "Mozilla/5.0",
         "Referer": "https://q.10jqka.com.cn/"
     }
-    
-    response = requests.get(url, headers=headers, timeout=15)
-    json_str = re.search(r'\((.*)\)', response.text, re.DOTALL).group(1)
-    data = json.loads(json_str)
-    
-    return _parse_daily_kline(code, data)
+    resp = requests.get(url, headers=headers, timeout=15)
+    json_str = re.search(r'\((.*)\)', resp.text, re.DOTALL).group(1)
+    return eval(json_str)  # 已知是标准 dict，直接 eval
 
 
-def _parse_daily_kline(symbol: str, data: dict) -> KlineData:
-    """
-    解析日K数据
+def _parse_kline(symbol: str, data: dict, start: datetime = None, end: datetime = None) -> KlineData:
+    """解析K线数据
     
-    :param symbol: 股票代码
-    :param data: API返回的原始数据
-    :return: KlineData 对象
+    数据格式：
+    - dates: MMDD 格式，按年拼接
+    - price: [low, open-low, high-low, close-low]，除以100
+    - volumn: 成交量
+    - sortYear: [[year, count], ...]
     """
-    sort_year = data.get('sortYear', [])
-    all_dates = data.get('dates', '').split(',')
-    price_vals = [int(x) for x in data.get('price', '').split(',')]
-    volumn_vals = [int(x) for x in data.get('volumn', '').split(',')]
+    dates = data['dates'].split(',')
+    price = [int(x) for x in data['price'].split(',')]
+    volumn = [int(x) for x in data['volumn'].split(',')]
+    sort_year = data['sortYear']
     
     records = []
     date_idx = 0
     
     for year, count in sort_year:
-        # 边界处理：dates 数组可能比 sortYear 总数少1
-        remaining_dates = len(all_dates) - date_idx
-        actual_count = min(count, remaining_dates)
-        
-        if actual_count <= 0:
-            break
-        
-        year_dates = all_dates[date_idx:date_idx + actual_count]
-        date_idx += actual_count
-        
-        for i in range(actual_count):
-            date_str = year_dates[i]
-            month = int(date_str[:2])
-            day = int(date_str[2:4])
-            full_date = f"{year}-{month:02d}-{day:02d}"
-            
-            offset = len(records) * 4
-            # 边界检查
-            if offset + 3 >= len(price_vals):
+        for i in range(count):
+            if date_idx >= len(dates):
                 break
             
-            raw_low = price_vals[offset]
-            raw_open_diff = price_vals[offset + 1]
-            raw_high_diff = price_vals[offset + 2]
-            raw_close_diff = price_vals[offset + 3]
+            # 解析日期
+            date_str = dates[date_idx]
+            month = int(date_str[:2])
+            day = int(date_str[2:4])
+            dt = datetime(year, month, day)
             
-            low = raw_low / 100
-            open_p = low + raw_open_diff / 100
-            high = low + raw_high_diff / 100
-            close_p = low + raw_close_diff / 100
+            # 日期过滤
+            if start and dt < start:
+                date_idx += 1
+                continue
+            if end and dt > end:
+                date_idx += 1
+                continue
             
-            # 成交量
-            volume = volumn_vals[len(records)] if len(records) < len(volumn_vals) else 0
+            # 解析价格
+            offset = date_idx * 4
+            low = price[offset] / 100
+            open_p = low + price[offset + 1] / 100
+            high = low + price[offset + 2] / 100
+            close_p = low + price[offset + 3] / 100
             
-            record = KlineRecord(
-                timestamp=full_date,
+            records.append(KlineRecord(
+                timestamp=dt.strftime("%Y-%m-%d"),
                 open=round(open_p, 2),
                 close=round(close_p, 2),
                 high=round(high, 2),
                 low=round(low, 2),
-                volume=volume,
+                volume=volumn[date_idx],
                 amount=None,
                 turnover=None,
                 chg=None,
                 percent=None,
-            )
-            records.append(record)
+            ))
+            
+            date_idx += 1
     
     return KlineData(symbol=symbol, period="day", records=records)
+
+
+# ============ 客户端 ============
+class THSClient:
+    
+    def kline(self, symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
+        """获取日K线
+        
+        :param symbol: 股票代码
+        :param market: 市场 sh/sz
+        :param start: 开始日期 YYYY-MM-DD
+        :param end: 结束日期 YYYY-MM-DD
+        """
+        code, market = normalize_symbol(symbol, market)
+        symbol = f"SH{code}" if market == "sh" else f"SZ{code}"
+        
+        start_dt = datetime.strptime(start, "%Y-%m-%d") if start else None
+        end_dt = datetime.strptime(end, "%Y-%m-%d") if end else None
+        
+        data = _fetch_data(code, market)
+        return _parse_kline(symbol, data, start_dt, end_dt)
+    
+    def quote(self, symbol: str, market: str = None):
+        """暂不支持"""
+        raise NotImplementedError("THS 暂不支持实时行情")
+    
+    def bonus(self, symbol: str, market: str = None):
+        """暂不支持"""
+        raise NotImplementedError("THS 暂不支持分红数据")
+    
+    def shares(self, symbol: str, market: str = None):
+        """暂不支持"""
+        raise NotImplementedError("THS 暂不支持股本数据")
 
 
 # ============ 便捷函数 ============
 _client = None
 
 
-def daily_kline(code: str, market: str = "sh") -> KlineData:
-    """获取日K线数据"""
-    return get_daily_kline(code, market)
+def _get_client():
+    global _client
+    if _client is None:
+        _client = THSClient()
+    return _client
+
+
+def kline(symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
+    return _get_client().kline(symbol, market, start, end)
 
 
 # ============ 主程序 ============
 if __name__ == "__main__":
-    # 测试
-    print("=" * 60)
-    print("测试 同花顺日K线")
-    print("=" * 60)
+    print("=" * 50)
+    print("同花顺K线测试")
+    print("=" * 50)
     
-    # 测试沪市
-    print("\n📈 日K线 (SH601398):")
-    kline = get_daily_kline("601398", "sh")
-    print(f"共 {len(kline)} 条记录")
-    print(f"{'日期':<12} {'开盘':<10} {'收盘':<10} {'最高':<10} {'最低':<10} {'成交量':<15}")
-    print("-" * 70)
+    # 完整历史
+    k = kline("601398", start="2026-01-01", end="2026-03-31")
+    print(f"\n{k.symbol}: {len(k.records)} 条")
+    for r in k.records[-5:]:
+        print(f"  {r.timestamp}: O={r.open:.2f} H={r.high:.2f} L={r.low:.2f} C={r.close:.2f}")
     
-    # 只显示最近10条
-    for record in kline.records[-10:]:
-        vol_str = f"{record.volume / 100000000:.2f}亿" if record.volume else "0"
-        print(f"{record.timestamp:<12} {record.open:<10.2f} {record.close:<10.2f} {record.high:<10.2f} {record.low:<10.2f} {vol_str}")
+    # 对比雪球
+    print("\n对比雪球:")
+    from stock.stock_xq import kline as xq_kline
+    k2 = xq_kline("601398", start="2026-01-01", end="2026-03-31")
+    print(f"雪球: {len(k2.records)} 条")
+    for r in k2.records[-3:]:
+        print(f"  {r.timestamp}: O={r.open:.2f} H={r.high:.2f} L={r.low:.2f} C={r.close:.2f}")
     
-    print("\n" + "=" * 60)
-    print("✅ 测试完成")
-    print("=" * 60)
+    print("\n✅ 完成")
