@@ -9,6 +9,7 @@ from bisect import bisect_right
 from datetime import datetime
 
 from stock import models
+from stock.stock_ths import THSClient
 from stock.stock_xq import XueqiuClient
 
 __all__ = ['quote', 'kline', 'bonus', 'shares', 'StockAPI']
@@ -52,7 +53,7 @@ class StockAPI:
 
     def __init__(self):
         self._xq = None
-        self._shares_cache = {}  # 缓存 {symbol: SharesHistory}
+        self._ths = None
 
     @property
     def xq(self) -> XueqiuClient:
@@ -60,24 +61,23 @@ class StockAPI:
             self._xq = XueqiuClient()
         return self._xq
 
+    @property
+    def ths(self) -> THSClient:
+        if self._ths is None:
+            self._ths = THSClient()
+        return self._ths
+
     def quote(self, symbol: str, market: str = None) -> StockQuote:
         return self.xq.quote(symbol, market)
 
     def kline(self, symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
-        # 获取K线数据
-        kdata = self.xq.kline(symbol, market, start, end)
+        # 获取K线数据（使用同花顺）
+        kdata = self.ths.kline(symbol, market, start, end)
         if not kdata.records:
             return kdata
         
-        # 获取规范化后的symbol（用于缓存）
-        from stock.stock_xq import normalize_symbol
-        sym = normalize_symbol(symbol, market)
-        
-        # 获取股本数据并缓存
-        if sym not in self._shares_cache:
-            self._shares_cache[sym] = self.xq.shares(symbol, market)
-        
-        shares_data = self._shares_cache[sym]
+        # 获取股本历史（使用雪球，包含所有日期的股本变动）
+        shares_data = self.xq.shares(symbol, market)
         if not shares_data.records:
             return kdata
         
@@ -91,7 +91,6 @@ class StockAPI:
                 # 找到 <= record.timestamp 的最近股本
                 pos = bisect_right(dates, record.timestamp) - 1
                 if pos >= 0 and float_shares[pos]:
-                    # 换手率 = 成交量 / 流通股本 * 100
                     record.turnover = round(record.volume / float_shares[pos] * 100, 4)
         
         return kdata
