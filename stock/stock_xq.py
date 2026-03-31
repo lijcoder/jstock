@@ -250,9 +250,9 @@ class XueqiuClient:
             float_h = item.get("float_shares_float_hshare")
             records.append(SharesChangeRecord(
                 chg_date=_ts_to_date(int(item["chg_date"])) if item.get("chg_date") else None,
-                total_shares=round(total / 100000000, 2) if total else None,
-                float_shares_ashare=round(float_a / 100000000, 2) if float_a else None,
-                float_shares_hshare=round(float_h / 100000000, 2) if float_h else None,
+                total_shares=total,
+                float_shares_ashare=float_a,
+                float_shares_hshare=float_h,
                 chg_reason=item.get("chg_reason"),
             ))
         return SharesHistory(symbol=symbol, records=records)

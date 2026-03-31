@@ -112,10 +112,10 @@ class BonusHistory:
 class SharesChangeRecord:
     """股本变动记录"""
     chg_date: Optional[str] = None                  # 变动日期
-    total_shares: Optional[float] = None          # 总股本（亿股）
-    float_shares_ashare: Optional[float] = None     # 流通A股（亿股）
-    float_shares_hshare: Optional[float] = None    # 流通H股（亿股）
-    chg_reason: Optional[str] = None               # 变动原因
+    total_shares: Optional[int] = None              # 总股本（股）
+    float_shares_ashare: Optional[int] = None        # 流通A股（股）
+    float_shares_hshare: Optional[int] = None       # 流通H股（股）
+    chg_reason: Optional[str] = None                # 变动原因
 
     def to_dict(self) -> Dict[str, Any]:
         return {k: v for k, v in asdict(self).items() if v is not None}
