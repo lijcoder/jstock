@@ -10,7 +10,7 @@ if __name__ == "__main__" and __package__ is None:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from stock.stock_ths import kline
+from jstock.stock_ths import kline
 
 
 def test_all():
@@ -31,7 +31,7 @@ def test_all():
 
     # 对比雪球
     print("\n🔍 对比雪球:")
-    from stock.stock_xq import kline as xq_kline
+    from jstock.stock_xq import kline as xq_kline
     xq = xq_kline("601398", start="2026-03-01", end="2026-03-31")
     
     ths_dict = {r.timestamp: r for r in k.records}

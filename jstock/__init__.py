@@ -1,6 +1,6 @@
 # stock package
 
-from stock.models import (
+from jstock.models import (
     StockQuote,
     BonusRecord,
     BonusHistory,
@@ -10,7 +10,7 @@ from stock.models import (
     KlineData,
 )
 
-from stock.stock_api import (
+from jstock.stock_api import (
     StockAPI,
     quote,
     kline,
@@ -18,7 +18,7 @@ from stock.stock_api import (
     shares,
 )
 
-from stock.config import (
+from jstock.config import (
     CONFIG_DIR,
     CACHE_DIR,
     DATA_DIR,

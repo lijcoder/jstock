@@ -21,8 +21,8 @@ from datetime import datetime, timedelta
 import requests
 from playwright.sync_api import sync_playwright
 
-from stock.config import XUEQIU_TOKEN_FILE, XUEQIU_TOKEN_LOCK
-from stock.models import (
+from jstock.config import XUEQIU_TOKEN_FILE, XUEQIU_TOKEN_LOCK
+from jstock.models import (
     BonusHistory,
     BonusRecord,
     KlineData,
@@ -142,7 +142,7 @@ def _get_cookies():
 
 
 def _ensure_dir():
-    from stock.config import ensure_dirs
+    from jstock.config import ensure_dirs
     ensure_dirs()
 
 

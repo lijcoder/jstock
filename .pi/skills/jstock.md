@@ -1,12 +1,11 @@
+---
+name: jstock
+description: 股票数据查询工具。支持行情、K线、分红、股本等数据查询。
+---
+
 # jstock 股票数据查询工具
 
 股票数据统一 API，支持行情、K线、分红、股本等数据查询。
-
-## 环境准备
-
-```bash
-cd /Users/lijie/work/ai/jstock
-```
 
 ## CLI 用法
 

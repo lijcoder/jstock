@@ -15,7 +15,7 @@ from datetime import datetime
 
 import requests
 
-from stock.models import KlineData, KlineRecord
+from jstock.models import KlineData, KlineRecord
 
 
 # ============ 工具函数 ============

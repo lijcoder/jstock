@@ -10,7 +10,7 @@ if __name__ == "__main__" and __package__ is None:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from stock import StockAPI, quote, kline, bonus, shares
+from jstock import StockAPI, quote, kline, bonus, shares
 
 
 def test_all():

@@ -8,9 +8,9 @@ Desc: 股票数据统一API
 from bisect import bisect_right
 from datetime import datetime
 
-from stock import models
-from stock.stock_ths import THSClient
-from stock.stock_xq import XueqiuClient
+from jstock import models
+from jstock.stock_ths import THSClient
+from jstock.stock_xq import XueqiuClient
 
 __all__ = ['quote', 'kline', 'bonus', 'shares', 'StockAPI']
 

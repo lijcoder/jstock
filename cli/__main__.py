@@ -15,7 +15,7 @@ import argparse
 import json
 import sys
 
-from stock import StockAPI
+from jstock import StockAPI
 
 
 def cmd_quote(args):

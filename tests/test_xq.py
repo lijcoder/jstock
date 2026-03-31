@@ -10,7 +10,7 @@ if __name__ == "__main__" and __package__ is None:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from stock.stock_xq import XueqiuClient, _get_cookies, normalize_symbol
+from jstock.stock_xq import XueqiuClient, _get_cookies, normalize_symbol
 
 
 def test_all():
