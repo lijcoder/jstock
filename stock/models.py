@@ -112,9 +112,9 @@ class BonusHistory:
 class SharesChangeRecord:
     """股本变动记录"""
     chg_date: Optional[str] = None                  # 变动日期
-    total_shares: Optional[str] = None             # 总股本
-    float_shares_ashare: Optional[str] = None      # 流通A股
-    float_shares_hshare: Optional[str] = None      # 流通H股
+    total_shares: Optional[float] = None          # 总股本（亿股）
+    float_shares_ashare: Optional[float] = None     # 流通A股（亿股）
+    float_shares_hshare: Optional[float] = None    # 流通H股（亿股）
     chg_reason: Optional[str] = None               # 变动原因
 
     def to_dict(self) -> Dict[str, Any]:
