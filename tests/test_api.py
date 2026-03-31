@@ -45,22 +45,20 @@ def test_kline():
 
     api = StockAPI()
 
-    # 按时间范围
-    print("\n[按时间范围 - days]")
-    k = api.kline("601398", days=30)
+    # 默认最近1年
+    print("\n[默认最近1年]")
+    k = api.kline("601398")
     print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
     print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
 
-    print("\n[按时间范围 - weeks]")
-    k = api.kline("601398", weeks=12)
+    # 到指定日期
+    print("\n[到指定日期]")
+    k = api.kline("601398", end="2025-12-31")
     print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
 
-    print("\n[按时间范围 - months]")
-    k = api.kline("601398", months=6)
-    print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
-
-    print("\n[按时间范围 - years]")
-    k = api.kline("601398", years=3)
+    # 从指定日期至今
+    print("\n[从指定日期至今]")
+    k = api.kline("601398", start="2025-01-01")
     print(f"  ✅ {k.symbol} 共 {len(k.records)} 条")
     print(f"     从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
 
@@ -73,8 +71,8 @@ def test_kline():
 
     # 便捷函数
     print("\n[便捷函数]")
-    k = kline("000001", days=60)
-    print(f"  ✅ kline(days=60): {k.symbol} 共 {len(k.records)} 条")
+    k = kline("000001")
+    print(f"  ✅ kline(): {k.symbol} 共 {len(k.records)} 条")
 
 
 def test_bonus():

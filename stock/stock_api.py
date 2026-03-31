@@ -42,27 +42,9 @@ def quote(symbol: str, market: str = None) -> StockQuote:
     return _get_api().quote(symbol, market)
 
 
-def kline(
-    symbol: str,
-    years: int = None,
-    months: int = None,
-    weeks: int = None,
-    days: int = None,
-    start: str = None,
-    end: str = None,
-    market: str = None,
-) -> KlineData:
+def kline(symbol: str, start: str = None, end: str = None, market: str = None) -> KlineData:
     """获取K线数据（日K）"""
-    return _get_api().kline(
-        symbol,
-        years=years,
-        months=months,
-        weeks=weeks,
-        days=days,
-        start=start,
-        end=end,
-        market=market,
-    )
+    return _get_api().kline(symbol, start=start, end=end, market=market)
 
 
 def bonus(symbol: str, market: str = None) -> BonusHistory:
@@ -90,10 +72,9 @@ class StockAPI:
         print(q.name, q.current)
         
         # 获取日K线
-        k = api.kline("601398", days=30)       # 最近30天
-        k = api.kline("601398", weeks=2)      # 最近2周
-        k = api.kline("601398", months=6)     # 最近6个月
-        k = api.kline("601398", years=3)      # 最近3年
+        k = api.kline("601398")                      # 默认最近1年
+        k = api.kline("601398", end="2026-03-31")    # 到指定日期
+        k = api.kline("601398", start="2025-01-01")  # 从指定日期至今
         k = api.kline("601398", start="2025-01-01", end="2025-12-31")  # 日期范围
     """
 
@@ -128,72 +109,38 @@ class StockAPI:
         symbol = normalize_symbol(symbol, market)
         return self.xq.stock_shares(symbol)
 
-    def kline(
-        self,
-        symbol: str,
-        years: int = None,
-        months: int = None,
-        weeks: int = None,
-        days: int = None,
-        start: str = None,
-        end: str = None,
-        market: str = None,
-    ) -> KlineData:
+    def kline(self, symbol: str, start: str = None, end: str = None, market: str = None) -> KlineData:
         """
         获取日K线数据
         
         :param symbol: 股票代码
-        :param years: 最近N年
-        :param months: 最近N月
-        :param weeks: 最近N周
-        :param days: 最近N天
         :param start: 开始日期，YYYY-MM-DD 格式
         :param end: 结束日期，YYYY-MM-DD 格式
         :param market: 指定市场
         
         使用示例:
-            kline("601398", days=30)       # 最近30天
-            kline("601398", weeks=2)        # 最近2周
-            kline("601398", months=6)       # 最近6个月
-            kline("601398", years=3)        # 最近3年
-            kline("601398", start="2025-01-01", end="2025-12-31")
+            kline("601398")                           # 默认最近1年
+            kline("601398", end="2026-03-31")         # 到指定日期
+            kline("601398", start="2025-01-01")       # 从指定日期至今
+            kline("601398", start="2025-01-01", end="2025-12-31")  # 日期范围
         """
         # 规范化代码
         raw_symbol = symbol
         symbol = normalize_symbol(symbol, market)
         market = symbol[:2]
         
-        # 确定时间范围
-        if days is not None:
-            years = days / 365
-        elif weeks is not None:
-            years = weeks / 52
-        elif months is not None:
-            years = months / 12
-        elif years is None:
-            years = 5  # 默认5年
-        
         # 调用数据源
         if self.primary == "xq":
-            return self.xq.kline(symbol, years, start, end)
+            return self.xq.kline(symbol, start, end)
         
         # THS fallback
-        return ths_kline(raw_symbol, market, years, start, end)
+        return ths_kline(raw_symbol, market, start, end)
 
 
-def ths_kline(
-    code: str,
-    market: str,
-    years: int = 5,
-    start: str = None,
-    end: str = None,
-) -> KlineData:
-    """
-    同花顺K线接口
-    """
+def ths_kline(code: str, market: str, start: str = None, end: str = None) -> KlineData:
+    """同花顺K线接口"""
     market_prefix = "sh" if market == "SH" else "sz"
     
-    # THS只支持日K和日期范围
     data = ths_daily_kline(code, market_prefix)
     
     # 过滤日期范围
@@ -231,21 +178,21 @@ if __name__ == "__main__":
     print("测试股票统一API - K线接口")
     print("=" * 50)
 
-    # 按时间范围
-    print("\n📈 最近N天:")
-    k = api.kline("601398", days=30)
+    # 默认最近1年
+    print("\n📈 默认最近1年:")
+    k = api.kline("601398")
+    print(f"  {k.symbol} 共 {len(k.records)} 条")
+    if k.records:
+        print(f"  从 {k.records[0].timestamp} 到 {k.records[-1].timestamp}")
+
+    # 到指定日期
+    print("\n📈 到指定日期:")
+    k = api.kline("601398", end="2025-12-31")
     print(f"  {k.symbol} 共 {len(k.records)} 条")
 
-    print("\n📈 最近N周:")
-    k = api.kline("601398", weeks=12)
-    print(f"  {k.symbol} 共 {len(k.records)} 条")
-
-    print("\n📈 最近N月:")
-    k = api.kline("601398", months=6)
-    print(f"  {k.symbol} 共 {len(k.records)} 条")
-
-    print("\n📈 最近N年:")
-    k = api.kline("601398", years=5)
+    # 从指定日期至今
+    print("\n📈 从指定日期至今:")
+    k = api.kline("601398", start="2025-01-01")
     print(f"  {k.symbol} 共 {len(k.records)} 条")
 
     # 日期范围

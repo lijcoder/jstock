@@ -309,48 +309,29 @@ class XueqiuClient:
 
         return SharesHistory(symbol=symbol, records=records)
 
-    def kline(
-        self,
-        symbol: str,
-        years: float = 5,
-        start: str = None,
-        end: str = None,
-    ) -> KlineData:
+    def kline(self, symbol: str, start: str = None, end: str = None) -> KlineData:
         """
         获取日K线数据
         
         :param symbol: 股票代码（已规范化）
-        :param years: 最近N年（支持小数）
-        :param start: 开始日期 YYYY-MM-DD
-        :param end: 结束日期 YYYY-MM-DD
+        :param start: 开始日期 YYYY-MM-DD，默认最近1年
+        :param end: 结束日期 YYYY-MM-DD，默认今天
         """
         from datetime import datetime, timedelta
         import math
         
-        end_ts = int(datetime.now().timestamp() * 1000)
+        now = datetime.now()
+        end_ts = int(now.timestamp() * 1000)
         
-        # 根据日期范围计算count
-        count = None
-        start_ts = None
+        # 解析日期
+        start_dt = datetime.strptime(start, "%Y-%m-%d") if start else now - timedelta(days=365)
+        end_dt = datetime.strptime(end, "%Y-%m-%d") if end else now
         
-        if start or end:
-            # 使用日期范围
-            start_dt = datetime.strptime(start, "%Y-%m-%d") if start else datetime.now() - timedelta(days=365 * years)
-            end_dt = datetime.strptime(end, "%Y-%m-%d") if end else datetime.now()
-            
-            # 计算天数
-            days = (end_dt - start_dt).days + 1
-            count = -math.ceil(days * 1.2)  # 多取20%防止周末问题
-            count = max(count, -2500)
-            start_ts = int(start_dt.timestamp() * 1000)
-        elif years:
-            # 使用年数
-            days = int(years * 365)
-            count = -math.ceil(days * 1.2)
-            count = max(count, -2500)
-        else:
-            # 默认5年
-            count = -1250
+        # 计算天数，多取20%防止周末问题
+        days = (end_dt - start_dt).days + 1
+        count = -math.ceil(days * 1.2)
+        count = max(count, -2500)  # 最多2500条
+        start_ts = int(start_dt.timestamp() * 1000)
 
         url = "https://stock.xueqiu.com/v5/stock/chart/kline.json"
         params = {
@@ -420,10 +401,10 @@ def stock_shares(symbol: str, market: str = None) -> SharesHistory:
     return _get_client().stock_shares(symbol, market)
 
 
-def kline(symbol: str, years: int = 5, start: str = None, end: str = None, market: str = None) -> KlineData:
+def kline(symbol: str, start: str = None, end: str = None, market: str = None) -> KlineData:
     """获取日K线数据"""
     symbol = normalize_symbol(symbol, market)
-    return _get_client().kline(symbol, years, start, end)
+    return _get_client().kline(symbol, start, end)
 
 
 # ============ 主程序 ============
