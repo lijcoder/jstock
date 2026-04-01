@@ -21,7 +21,7 @@ jstock position save 601398 --volume 1000 --cost 5.5    # 保存持仓
 jstock position list                                    # 持仓列表
 jstock position list --type etf                         # 只查 ETF
 jstock position get 601398                              # 持仓详情
-jstock position delete 601398                           # 删除持仓（见下方说明）
+jstock position delete 601398                           # 删除持仓
 jstock position portfolio                               # 持仓汇总
 ```
 
@@ -70,33 +70,8 @@ summary = portfolio_summary()  # 汇总
 {"code": 1, "message": "错误信息"}
 ```
 
-## 删除持仓操作
-
-**重要：删除持仓前必须先让用户确认！**
-
-执行删除操作时，AI Agent 应该：
-1. 先查询持仓信息确认
-2. 向用户展示待删除的持仓详情（使用 `jstock position get <代码>`）
-3. 等待用户明确确认后再执行删除命令
-
-示例流程：
-```
-用户：删除 601398 的持仓
-
-AI：确认删除以下持仓？
-- 代码：601398
-- 名称：工商银行
-- 数量：1000 股
-- 成本价：5.50
-
-请确认是否删除 (yes/no)：
-
-用户：yes
-AI：执行删除命令 jstock position delete 601398
-```
-
 ## 注意事项
 
-1. **删除操作**：删除持仓前必须先查询并展示持仓详情，等待用户确认后再执行删除命令
-2. **数据来源**：行情数据来自雪球/同花顺，实时性取决于数据源
-3. **持仓数据**：存储在本地 SQLite 数据库 (~/.jstock/db/positions.db)
+1. **删除持仓前**：必须先查询并展示持仓详情，等待用户确认后再执行删除命令
+2. **数据来源**：行情数据来自雪球/同花顺
+3. **持仓存储**：本地 SQLite 数据库 (~/.jstock/db/positions.db)
