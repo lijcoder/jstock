@@ -50,12 +50,12 @@ summary = portfolio_summary()  # 汇总
 
 ### 行情数据
 - **quote**: `{symbol, name, current, change, percent, volume(手), amount(元), pe_ttm, pb, market_cap...}`
-- **kline**: `{symbol, period, records: [{date, open, close, high, low, volume(手), amount(元), float_shares(股), turnover(%), change, percent}]}`
+- **kline**: `{symbol, period, records: [{date, open, close, high, low, volume(股), amount(元), float_shares(股), turnover(%), change, percent}]}`
 - **bonus**: `{symbol, records: [{year, equity_date, ex_dividend_date, dividend_date, plan}]}`
 - **shares**: `{symbol, records: [{date, total(股), float_a(股), float_h(股), reason}]}`
 
 ### 持仓数据
-- **position**: `{symbol, name, type(stock/etf/fund), volume, cost_price, cost_amount, current_price, market_value, profit, profit_rate}`
+- **position**: `{symbol, name, type(stock/etf/fund), volume(股), cost_price, cost_amount, current_price, market_value, profit, profit_rate}`
 - **portfolio_summary**: `{count, total_cost, total_market_value, total_profit, profit_rate, positions[]}`
 
 ## 数据源
@@ -75,3 +75,4 @@ summary = portfolio_summary()  # 汇总
 1. **删除持仓前**：必须先查询并展示持仓详情，等待用户确认后再执行删除命令
 2. **数据来源**：行情数据来自雪球/同花顺
 3. **持仓存储**：本地 SQLite 数据库 (~/.jstock/db/positions.db)
+4. **股/手换算**：1手 = 100股。quote的volume是手，kline/持仓/shares的volume都是股
