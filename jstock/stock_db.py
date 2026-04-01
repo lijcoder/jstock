@@ -70,16 +70,33 @@ class StockDB:
     
     def save(self, db_pos: DBPosition) -> bool:
         """保存持仓（新增或更新）"""
-        # 新增时必须指定建仓时间
-        if db_pos.buy_date is None:
-            # 检查是否已存在
-            existing = self.get(db_pos.symbol)
-            if existing is None:
-                raise StockDBError("新建持仓必须指定建仓时间 buy_date")
+        # 必填字段校验
+        missing_fields = []
+        if not db_pos.symbol:
+            missing_fields.append("股票代码")
+        if db_pos.volume is None or db_pos.volume <= 0:
+            missing_fields.append("持仓数量")
+        if db_pos.cost_price is None or db_pos.cost_price <= 0:
+            missing_fields.append("成本价")
+        if not db_pos.buy_date:
+            missing_fields.append("建仓时间")
+        
+        # 新增时所有字段都必填
+        existing = self.get(db_pos.symbol)
+        if existing is None:
+            if missing_fields:
+                raise StockDBError(f"新建持仓缺少必填字段: {', '.join(missing_fields)}")
+        # 更新时只校验被传入的空字段（原有值保留）
         
         try:
             conn = self._get_conn()
             cursor = conn.cursor()
+            
+            # 如果更新时不传字段，保留原有值
+            name = db_pos.name if db_pos.name is not None else existing.name if existing else None
+            type_val = db_pos.type if db_pos.type is not None else existing.type if existing else "stock"
+            buy_date = db_pos.buy_date if db_pos.buy_date is not None else existing.buy_date if existing else None
+            
             cursor.execute("""
                 INSERT INTO positions (symbol, name, type, volume, cost_price, buy_date)
                 VALUES (?, ?, ?, ?, ?, ?)
@@ -88,10 +105,10 @@ class StockDB:
                     type=excluded.type,
                     volume=excluded.volume,
                     cost_price=excluded.cost_price,
-                    buy_date=COALESCE(excluded.buy_date, buy_date),
+                    buy_date=excluded.buy_date,
                     updated_at=datetime('now', 'localtime')
-            """, (db_pos.symbol, db_pos.name, db_pos.type,
-                  db_pos.volume, db_pos.cost_price, db_pos.buy_date))
+            """, (db_pos.symbol, name, type_val,
+                  db_pos.volume, db_pos.cost_price, buy_date))
             conn.commit()
             conn.close()
             logger.info(f"持仓已保存: {db_pos.symbol} {db_pos.volume}股 @ {db_pos.cost_price}")

@@ -17,7 +17,7 @@ jstock bonus 601398                              # 分红
 jstock shares 601398                             # 股本
 
 # 持仓管理
-jstock position save 601398 --volume 1000 --cost 5.5 --buy-date 2026-01-01  # 保存持仓（带建仓时间）
+jstock position save 601398 --volume 1000 --cost 5.5 --buy-date 2026-01-01  # 保存持仓（必填：volume/cost/buy_date）
 jstock position list                                    # 持仓列表
 jstock position list --type etf                         # 只查 ETF
 jstock position get 601398                              # 持仓详情

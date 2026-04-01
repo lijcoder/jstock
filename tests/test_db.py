@@ -73,16 +73,30 @@ class TestStockDB:
         assert saved.cost_price == 10.5
         assert saved.buy_date == "2026-01-01"
     
-    def test_save_position_new_must_have_buy_date(self, db):
-        """测试新建持仓必须指定建仓时间"""
+    def test_save_position_new_must_have_fields(self, db):
+        """测试新建持仓必须填写所有必填字段"""
         from jstock.stock_db import StockDBError
         db_pos = DBPosition(
             symbol="600000",
             volume=1000,
             cost_price=10.5
         )
-        with pytest.raises(StockDBError, match="新建持仓必须指定建仓时间"):
+        with pytest.raises(StockDBError, match="新建持仓缺少必填字段"):
             db.save(db_pos)
+    
+    def test_update_position_can_modify_all_fields(self, db):
+        """测试更新持仓可以修改所有字段"""
+        # 先保存
+        db.save(DBPosition(symbol="600000", volume=1000, cost_price=10.0, buy_date="2026-01-01", name="原名称"))
+        
+        # 更新所有字段
+        db.save(DBPosition(symbol="600000", volume=2000, cost_price=11.0, buy_date="2026-02-01", name="新名称"))
+        
+        saved = db.get("600000")
+        assert saved.volume == 2000
+        assert saved.cost_price == 11.0
+        assert saved.buy_date == "2026-02-01"
+        assert saved.name == "新名称"
     
     def test_update_position(self, db):
         """测试更新持仓"""
