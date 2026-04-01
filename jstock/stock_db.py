@@ -70,6 +70,13 @@ class StockDB:
     
     def save(self, db_pos: DBPosition) -> bool:
         """保存持仓（新增或更新）"""
+        # 新增时必须指定建仓时间
+        if db_pos.buy_date is None:
+            # 检查是否已存在
+            existing = self.get(db_pos.symbol)
+            if existing is None:
+                raise StockDBError("新建持仓必须指定建仓时间 buy_date")
+        
         try:
             conn = self._get_conn()
             cursor = conn.cursor()

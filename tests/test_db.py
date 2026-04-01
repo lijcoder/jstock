@@ -73,22 +73,21 @@ class TestStockDB:
         assert saved.cost_price == 10.5
         assert saved.buy_date == "2026-01-01"
     
-    def test_save_position_without_buy_date(self, db):
-        """测试保存持仓（无建仓时间，兼容历史数据）"""
+    def test_save_position_new_must_have_buy_date(self, db):
+        """测试新建持仓必须指定建仓时间"""
+        from jstock.stock_db import StockDBError
         db_pos = DBPosition(
             symbol="600000",
             volume=1000,
             cost_price=10.5
         )
-        assert db.save(db_pos) is True
-        
-        saved = db.get("600000")
-        assert saved.buy_date is None  # 历史数据没有建仓时间
+        with pytest.raises(StockDBError, match="新建持仓必须指定建仓时间"):
+            db.save(db_pos)
     
     def test_update_position(self, db):
         """测试更新持仓"""
         # 先保存
-        db.save(DBPosition(symbol="600000", volume=1000, cost_price=10.0))
+        db.save(DBPosition(symbol="600000", volume=1000, cost_price=10.0, buy_date="2026-01-01"))
         
         # 更新
         db.save(DBPosition(symbol="600000", volume=2000, cost_price=11.0))
@@ -97,10 +96,11 @@ class TestStockDB:
         saved = db.get("600000")
         assert saved.volume == 2000
         assert saved.cost_price == 11.0
+        assert saved.buy_date == "2026-01-01"  # 保持原有值
     
     def test_get_position(self, db):
         """测试查询单个持仓"""
-        db.save(DBPosition(symbol="600001", volume=500, cost_price=5.0))
+        db.save(DBPosition(symbol="600001", volume=500, cost_price=5.0, buy_date="2026-02-01"))
         
         # 查询存在
         pos = db.get("600001")
@@ -113,8 +113,8 @@ class TestStockDB:
     
     def test_list_positions(self, db):
         """测试查询所有持仓"""
-        db.save(DBPosition(symbol="600001", volume=100, cost_price=1.0))
-        db.save(DBPosition(symbol="600002", volume=200, cost_price=2.0, type="etf"))
+        db.save(DBPosition(symbol="600001", volume=100, cost_price=1.0, buy_date="2026-01-01"))
+        db.save(DBPosition(symbol="600002", volume=200, cost_price=2.0, type="etf", buy_date="2026-01-02"))
         
         # 全部
         positions = db.list_all()
@@ -127,7 +127,7 @@ class TestStockDB:
     
     def test_delete_position(self, db):
         """测试删除持仓"""
-        db.save(DBPosition(symbol="600001", volume=100, cost_price=1.0))
+        db.save(DBPosition(symbol="600001", volume=100, cost_price=1.0, buy_date="2026-01-01"))
         
         # 删除存在
         assert db.delete("600001") is True
@@ -171,7 +171,7 @@ class TestStockPositions:
         stock_positions._db = StockDB(db_path)
         
         from jstock import position_save
-        assert position_save("600000", 1000, 10.5, "浦发银行", "stock") is True
+        assert position_save("600000", 1000, 10.5, "浦发银行", "stock", "2026-01-01") is True
     
     def test_position_save_with_buy_date(self, db_path):
         """测试保存持仓（带建仓时间）"""
@@ -189,7 +189,7 @@ class TestStockPositions:
         
         from jstock import position_save, position_get
         
-        position_save("600001", 500, 5.0, "某股票")
+        position_save("600001", 500, 5.0, "某股票", buy_date="2026-02-01")
         
         # 不获取价格
         pos = position_get("600001", with_price=False)
@@ -204,8 +204,8 @@ class TestStockPositions:
         
         from jstock import position_save, position_list
         
-        position_save("600001", 100, 1.0)
-        position_save("510001", 200, 2.0, type="etf")
+        position_save("600001", 100, 1.0, buy_date="2026-01-01")
+        position_save("510001", 200, 2.0, type="etf", buy_date="2026-01-02")
         
         positions = position_list()
         assert len(positions) == 2
@@ -220,7 +220,7 @@ class TestStockPositions:
         
         from jstock import position_save, position_delete
         
-        position_save("600001", 100, 1.0)
+        position_save("600001", 100, 1.0, buy_date="2026-01-01")
         assert position_delete("600001") is True
         assert position_delete("999999") is False
 
