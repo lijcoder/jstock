@@ -1,8 +1,8 @@
-# !/usr/bin/env python3
+#!/usr/bin/env python3
 # -*- coding:utf-8 -*-
 """
 Date: 2026-03-31
-Desc: 同花顺API客户端
+Desc: 同花顺 API 客户端
 """
 
 if __name__ == "__main__" and __package__ is None:
@@ -31,7 +31,7 @@ def normalize_symbol(code: str, market: str = None) -> tuple:
 class THSClient:
     
     def kline(self, symbol: str, market: str = None, start: str = None, end: str = None) -> KlineData:
-        """获取日K线"""
+        """获取日 K 线"""
         code, market = normalize_symbol(symbol, market)
         out_symbol = f"SH{code}" if market == "sh" else f"SZ{code}"
         
@@ -51,6 +51,7 @@ class THSClient:
         dates = data['dates'].split(',')
         price = [int(x) for x in data['price'].split(',')]
         volumn = [int(x) for x in data['volumn'].split(',')]
+        price_factor = data.get('priceFactor', 100)
         
         records = []
         prev_close = None
@@ -68,8 +69,8 @@ class THSClient:
                 if start_dt and dt < start_dt:
                     # 仍需计算 prev_close
                     offset = date_idx * 4
-                    low = price[offset] / 100
-                    close = low + price[offset + 3] / 100
+                    low = price[offset] / price_factor
+                    close = low + price[offset + 3] / price_factor
                     prev_close = close
                     date_idx += 1
                     continue
@@ -77,12 +78,12 @@ class THSClient:
                     date_idx += 1
                     continue
                 
-                # 解析价格: [low, open-low, high-low, close-low] / 100
+                # 解析价格：[low, open-low, high-low, close-low] / priceFactor
                 offset = date_idx * 4
-                low = price[offset] / 100
-                open_p = low + price[offset + 1] / 100
-                high = low + price[offset + 2] / 100
-                close = low + price[offset + 3] / 100
+                low = price[offset] / price_factor
+                open_p = low + price[offset + 1] / price_factor
+                high = low + price[offset + 2] / price_factor
+                close = low + price[offset + 3] / price_factor
                 
                 # 计算涨跌和涨跌幅
                 chg = round(close - prev_close, 2) if prev_close else None
@@ -93,10 +94,10 @@ class THSClient:
                 
                 records.append(KlineRecord(
                     timestamp=dt.strftime("%Y-%m-%d"),
-                    open=round(open_p, 2),
-                    close=round(close, 2),
-                    high=round(high, 2),
-                    low=round(low, 2),
+                    open=round(open_p, 3),
+                    close=round(close, 3),
+                    high=round(high, 3),
+                    low=round(low, 3),
                     volume=volumn[date_idx],
                     amount=amount,
                     turnover=None,  # 需要流通股本
