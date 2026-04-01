@@ -34,7 +34,7 @@ def position_save(symbol: str, volume: float, cost_price: float,
                  name: Optional[str] = None, type: str = "stock",
                  buy_date: Optional[str] = None) -> bool:
     """
-    保存持仓
+    新建持仓
     
     Args:
         symbol: 股票代码
@@ -42,7 +42,7 @@ def position_save(symbol: str, volume: float, cost_price: float,
         cost_price: 成本价
         name: 名称（可选）
         type: 类型 stock/etf/fund（默认 stock）
-        buy_date: 建仓时间（可选），格式 YYYY-MM-DD
+        buy_date: 建仓时间，格式 YYYY-MM-DD
     
     Returns:
         bool: 是否成功
@@ -59,7 +59,49 @@ def position_save(symbol: str, volume: float, cost_price: float,
         _get_db().save(db_pos)
         return True
     except StockDBError as e:
-        logger.error(f"保存持仓失败: {e}")
+        logger.error(f"新建持仓失败: {e}")
+        raise
+
+
+def position_update(symbol: str, volume: Optional[float] = None,
+                    cost_price: Optional[float] = None,
+                    name: Optional[str] = None,
+                    type: Optional[str] = None,
+                    buy_date: Optional[str] = None) -> bool:
+    """
+    更新持仓
+    
+    Args:
+        symbol: 股票代码
+        volume: 持仓数量（可选）
+        cost_price: 成本价（可选）
+        name: 名称（可选）
+        type: 类型（可选）
+        buy_date: 建仓时间（可选）
+    
+    Returns:
+        bool: 是否成功
+    """
+    # 先检查持仓是否存在
+    existing = _get_db().get(symbol)
+    if existing is None:
+        raise StockDBError(f"持仓不存在: {symbol}")
+    
+    # 构建更新数据
+    db_pos = DBPosition(
+        symbol=symbol,
+        name=name if name is not None else existing.name,
+        type=type if type is not None else existing.type,
+        volume=volume if volume is not None else existing.volume,
+        cost_price=cost_price if cost_price is not None else existing.cost_price,
+        buy_date=buy_date if buy_date is not None else existing.buy_date
+    )
+    
+    try:
+        _get_db().save(db_pos)
+        return True
+    except StockDBError as e:
+        logger.error(f"更新持仓失败: {e}")
         raise
 
 

@@ -149,13 +149,13 @@ def _position_to_dict(pos):
 
 
 def cmd_position_save(args):
-    """保存持仓"""
+    """新建持仓"""
     from jstock import position_save
     try:
         position_save(args.symbol, args.volume, args.cost, args.name, args.type, args.buy_date)
         data = {
             "code": 0,
-            "message": f"已保存持仓: {args.symbol}",
+            "message": f"已新建持仓: {args.symbol}",
             "data": {
                 "symbol": args.symbol,
                 "volume": args.volume,
@@ -167,7 +167,26 @@ def cmd_position_save(args):
         }
         print(json.dumps(data, ensure_ascii=False))
     except Exception as e:
-        data = {"code": 1, "message": f"保存失败: {e}"}
+        data = {"code": 1, "message": f"新建失败: {e}"}
+        print(json.dumps(data, ensure_ascii=False))
+        sys.exit(1)
+
+
+def cmd_position_update(args):
+    """更新持仓"""
+    from jstock import position_update
+    try:
+        position_update(args.symbol, args.volume, args.cost, args.name, args.type, args.buy_date)
+        data = {
+            "code": 0,
+            "message": f"已更新持仓: {args.symbol}",
+            "data": {
+                "symbol": args.symbol,
+            }
+        }
+        print(json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        data = {"code": 1, "message": f"更新失败: {e}"}
         print(json.dumps(data, ensure_ascii=False))
         sys.exit(1)
 
@@ -267,12 +286,21 @@ def main():
     pos = pos_sub.add_subparsers(dest="pos_cmd")
 
     # position save
-    p = pos.add_parser("save", help="保存持仓")
+    p = pos.add_parser("save", help="新建持仓")
     p.add_argument("symbol", help="股票代码")
     p.add_argument("--volume", type=float, required=True, help="持仓数量")
     p.add_argument("--cost", type=float, required=True, help="成本价")
     p.add_argument("--name", help="名称")
     p.add_argument("--type", default="stock", help="类型 stock/etf/fund")
+    p.add_argument("--buy-date", dest="buy_date", help="建仓时间 YYYY-MM-DD")
+    
+    # position update
+    p = pos.add_parser("update", help="更新持仓")
+    p.add_argument("symbol", help="股票代码")
+    p.add_argument("--volume", type=float, help="持仓数量")
+    p.add_argument("--cost", type=float, help="成本价")
+    p.add_argument("--name", help="名称")
+    p.add_argument("--type", help="类型 stock/etf/fund")
     p.add_argument("--buy-date", dest="buy_date", help="建仓时间 YYYY-MM-DD")
 
     # position get
@@ -303,6 +331,8 @@ def main():
     elif args.cmd == "position":
         if args.pos_cmd == "save":
             cmd_position_save(args)
+        elif args.pos_cmd == "update":
+            cmd_position_update(args)
         elif args.pos_cmd == "get":
             cmd_position_get(args)
         elif args.pos_cmd == "list":

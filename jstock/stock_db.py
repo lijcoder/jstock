@@ -70,23 +70,20 @@ class StockDB:
     
     def save(self, db_pos: DBPosition) -> bool:
         """保存持仓（新增或更新）"""
-        # 必填字段校验
-        missing_fields = []
-        if not db_pos.symbol:
-            missing_fields.append("股票代码")
-        if db_pos.volume is None or db_pos.volume <= 0:
-            missing_fields.append("持仓数量")
-        if db_pos.cost_price is None or db_pos.cost_price <= 0:
-            missing_fields.append("成本价")
-        if not db_pos.buy_date:
-            missing_fields.append("建仓时间")
-        
-        # 新增时所有字段都必填
+        # 新增时必填字段校验
         existing = self.get(db_pos.symbol)
         if existing is None:
+            missing_fields = []
+            if not db_pos.symbol:
+                missing_fields.append("股票代码")
+            if db_pos.volume is None or db_pos.volume <= 0:
+                missing_fields.append("持仓数量")
+            if db_pos.cost_price is None or db_pos.cost_price <= 0:
+                missing_fields.append("成本价")
+            if not db_pos.buy_date:
+                missing_fields.append("建仓时间")
             if missing_fields:
                 raise StockDBError(f"新建持仓缺少必填字段: {', '.join(missing_fields)}")
-        # 更新时只校验被传入的空字段（原有值保留）
         
         try:
             conn = self._get_conn()
@@ -95,6 +92,8 @@ class StockDB:
             # 如果更新时不传字段，保留原有值
             name = db_pos.name if db_pos.name is not None else existing.name if existing else None
             type_val = db_pos.type if db_pos.type is not None else existing.type if existing else "stock"
+            volume = db_pos.volume if db_pos.volume is not None else existing.volume if existing else 0
+            cost_price = db_pos.cost_price if db_pos.cost_price is not None else existing.cost_price if existing else 0
             buy_date = db_pos.buy_date if db_pos.buy_date is not None else existing.buy_date if existing else None
             
             cursor.execute("""
@@ -107,11 +106,10 @@ class StockDB:
                     cost_price=excluded.cost_price,
                     buy_date=excluded.buy_date,
                     updated_at=datetime('now', 'localtime')
-            """, (db_pos.symbol, name, type_val,
-                  db_pos.volume, db_pos.cost_price, buy_date))
+            """, (db_pos.symbol, name, type_val, volume, cost_price, buy_date))
             conn.commit()
             conn.close()
-            logger.info(f"持仓已保存: {db_pos.symbol} {db_pos.volume}股 @ {db_pos.cost_price}")
+            logger.info(f"持仓已保存: {db_pos.symbol} {volume}股 @ {cost_price}")
             return True
         except sqlite3.Error as e:
             error_msg = f"保存持仓失败: {e}"

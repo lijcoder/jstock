@@ -21,6 +21,7 @@ from jstock.stock_api import (
 
 from jstock.stock_positions import (
     position_save,
+    position_update,
     position_get,
     position_list,
     position_delete,

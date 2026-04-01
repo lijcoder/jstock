@@ -237,6 +237,37 @@ class TestStockPositions:
         position_save("600001", 100, 1.0, buy_date="2026-01-01")
         assert position_delete("600001") is True
         assert position_delete("999999") is False
+    
+    def test_position_update(self, db_path):
+        """测试更新持仓"""
+        stock_positions._db = StockDB(db_path)
+        
+        from jstock import position_save, position_update, position_get
+        
+        # 先创建
+        position_save("600001", 1000, 10.0, buy_date="2026-01-01")
+        
+        # 更新单个字段
+        position_update("600001", buy_date="2026-03-15")
+        pos = position_get("600001", with_price=False)
+        assert pos.buy_date == "2026-03-15"
+        assert pos.volume == 1000  # 未修改的保持原值
+        
+        # 更新多个字段
+        position_update("600001", volume=2000, cost_price=11.0)
+        pos = position_get("600001", with_price=False)
+        assert pos.volume == 2000
+        assert pos.cost_price == 11.0
+        assert pos.buy_date == "2026-03-15"
+    
+    def test_position_update_not_exist(self, db_path):
+        """测试更新不存在的持仓"""
+        stock_positions._db = StockDB(db_path)
+        
+        from jstock import position_update
+        from jstock.stock_db import StockDBError
+        with pytest.raises(StockDBError, match="持仓不存在"):
+            position_update("999999", buy_date="2026-01-01")
 
 
 class TestPositionModel:
