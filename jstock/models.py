@@ -173,3 +173,27 @@ class KlineData:
     
     def __iter__(self):
         return iter(self.records)
+
+
+# ============ 持仓数据 ============
+
+@dataclass
+class Position:
+    """持仓结构体"""
+    symbol: str                                 # 代码
+    name: Optional[str] = None                   # 名称
+    type: str = "stock"                         # 类型：stock/etf/fund
+    volume: float = 0.0                         # 持仓数量
+    cost_price: float = 0.0                     # 成本价
+    
+    # 动态字段（不存储）
+    current_price: Optional[float] = None      # 当前价
+    market_value: Optional[float] = None       # 市值
+    profit: Optional[float] = None             # 盈亏
+    profit_rate: Optional[float] = None        # 盈亏率 (%)
+    
+    @property
+    def cost_amount(self) -> float:
+        """成本金额"""
+        return self.volume * self.cost_price
+

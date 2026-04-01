@@ -1,36 +1,102 @@
 ---
 name: jstock
-description: A股股票数据查询工具。提供行情(K线/实时)、分红、股本变动等数据。自动计算换手率(成交量/流通股本)。
+description: A股股票数据查询工具。提供行情(K线/实时)、分红、股本变动、持仓管理。自动计算换手率(成交量/流通股本)和持仓盈亏。
 ---
 
 # jstock
 
-股票数据统一 API，K线换手率基于流通股本自动计算。
+股票数据统一 API，支持行情查询和持仓管理。
 
 ## CLI
+
 ```bash
-jstock quote 601398
-jstock kline 601398 --start 2026-01-01 --end 2026-03-31
-jstock bonus 601398
-jstock shares 601398
+# 行情查询
+jstock quote 601398                              # 行情
+jstock kline 601398 --start 2026-01-01          # K线
+jstock bonus 601398                              # 分红
+jstock shares 601398                             # 股本
+
+# 持仓管理
+jstock position save 601398 --volume 1000 --cost 5.5    # 保存持仓
+jstock position list                                    # 持仓列表
+jstock position list --type etf                         # 只查 ETF
+jstock position get 601398                              # 持仓详情
+jstock position delete 601398                           # 删除持仓（见下方说明）
+jstock position portfolio                               # 持仓汇总
 ```
 
 ## Python API
+
 ```python
 from jstock import quote, kline, bonus, shares
+from jstock import position_save, position_get, position_list, position_delete, portfolio_summary
 
+# 行情查询
 q = quote("601398")           # 行情
 k = kline("601398", start="2026-01-01")  # K线（含换手率、流通股本）
 b = bonus("601398")           # 分红
 s = shares("601398")          # 股本变动
+
+# 持仓管理
+position_save("601398", volume=1000, cost_price=5.5, name="工商银行", type="stock")
+position_save("510300", volume=500, cost_price=3.8, type="etf")
+positions = position_list()   # 含实时盈亏
+pos = position_get("601398")  # 单个持仓
+position_delete("601398")     # 删除持仓
+summary = portfolio_summary()  # 汇总
 ```
 
 ## 返回格式
+
+### 行情数据
 - **quote**: `{symbol, name, current, change, percent, volume(手), amount(元), pe_ttm, pb, market_cap...}`
 - **kline**: `{symbol, period, records: [{date, open, close, high, low, volume(手), amount(元), float_shares(股), turnover(%), change, percent}]}`
 - **bonus**: `{symbol, records: [{year, equity_date, ex_dividend_date, dividend_date, plan}]}`
 - **shares**: `{symbol, records: [{date, total(股), float_a(股), float_h(股), reason}]}`
 
+### 持仓数据
+- **position**: `{symbol, name, type(stock/etf/fund), volume, cost_price, cost_amount, current_price, market_value, profit, profit_rate}`
+- **portfolio_summary**: `{count, total_cost, total_market_value, total_profit, profit_rate, positions[]}`
+
 ## 数据源
 - quote/bonus/shares: 雪球
 - kline: 同花顺
+- 持仓: SQLite (~/.jstock/db/positions.db)
+
+## CLI 返回格式
+所有命令返回 JSON：
+```json
+{"code": 0, "data": {...}}
+{"code": 1, "message": "错误信息"}
+```
+
+## 删除持仓操作
+
+**重要：删除持仓前必须先让用户确认！**
+
+执行删除操作时，AI Agent 应该：
+1. 先查询持仓信息确认
+2. 向用户展示待删除的持仓详情（使用 `jstock position get <代码>`）
+3. 等待用户明确确认后再执行删除命令
+
+示例流程：
+```
+用户：删除 601398 的持仓
+
+AI：确认删除以下持仓？
+- 代码：601398
+- 名称：工商银行
+- 数量：1000 股
+- 成本价：5.50
+
+请确认是否删除 (yes/no)：
+
+用户：yes
+AI：执行删除命令 jstock position delete 601398
+```
+
+## 注意事项
+
+1. **删除操作**：删除持仓前必须先查询并展示持仓详情，等待用户确认后再执行删除命令
+2. **数据来源**：行情数据来自雪球/同花顺，实时性取决于数据源
+3. **持仓数据**：存储在本地 SQLite 数据库 (~/.jstock/db/positions.db)

@@ -5,15 +5,21 @@
 Date: 2026-03-31
 Desc: 股票数据CLI
 用法:
-  stock-cli quote 601398
-  stock-cli kline 601398 --start 2026-01-01 --end 2026-03-31
-  stock-cli bonus 601398
-  stock-cli shares 601398
+  jstock quote 601398                              # 行情
+  jstock kline 601398 --start 2026-01-01          # K线
+  jstock bonus 601398                              # 分红
+  jstock shares 601398                             # 股本
+  jstock position save 601398 --volume 1000 --cost 5.5  # 保存持仓
+  jstock position list                             # 持仓列表
+  jstock position get 601398                        # 持仓详情
+  jstock position delete 601398                    # 删除持仓
+  jstock position portfolio                         # 持仓汇总
 """
 
 import argparse
 import json
 import sys
+from typing import Optional
 
 from jstock import StockAPI
 
@@ -40,7 +46,6 @@ def cmd_quote(args):
             "market_cap": q.market_capital,
         }
     }
-    # 移除None值
     data["data"] = {k: v for k, v in data["data"].items() if v is not None}
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
@@ -121,6 +126,117 @@ def cmd_shares(args):
     print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
+def _position_to_dict(pos):
+    """持仓转字典"""
+    result = {
+        "symbol": pos.symbol,
+        "name": pos.name,
+        "type": pos.type,
+        "volume": pos.volume,
+        "cost_price": pos.cost_price,
+        "cost_amount": pos.cost_amount,
+    }
+    if pos.current_price is not None:
+        result.update({
+            "current_price": pos.current_price,
+            "market_value": pos.market_value,
+            "profit": pos.profit,
+            "profit_rate": pos.profit_rate,
+        })
+    return result
+
+
+def cmd_position_save(args):
+    """保存持仓"""
+    from jstock import position_save
+    try:
+        position_save(args.symbol, args.volume, args.cost, args.name, args.type)
+        data = {
+            "code": 0,
+            "message": f"已保存持仓: {args.symbol}",
+            "data": {
+                "symbol": args.symbol,
+                "volume": args.volume,
+                "cost_price": args.cost,
+                "name": args.name,
+                "type": args.type,
+            }
+        }
+        print(json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        data = {"code": 1, "message": f"保存失败: {e}"}
+        print(json.dumps(data, ensure_ascii=False))
+        sys.exit(1)
+
+
+def cmd_position_get(args):
+    """查询单个持仓"""
+    from jstock import position_get
+    try:
+        pos = position_get(args.symbol)
+        if pos:
+            data = {"code": 0, "data": _position_to_dict(pos)}
+        else:
+            data = {"code": 0, "data": None, "message": f"未找到持仓: {args.symbol}"}
+        print(json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        data = {"code": 1, "message": f"查询失败: {e}"}
+        print(json.dumps(data, ensure_ascii=False))
+        sys.exit(1)
+
+
+def cmd_position_list(args):
+    """查询持仓列表"""
+    from jstock import position_list
+    try:
+        positions = position_list(args.type)
+        data = {"code": 0, "data": [_position_to_dict(p) for p in positions]}
+        print(json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        data = {"code": 1, "message": f"查询失败: {e}"}
+        print(json.dumps(data, ensure_ascii=False))
+        sys.exit(1)
+
+
+def cmd_position_delete(args):
+    """删除持仓"""
+    from jstock import position_delete
+    try:
+        deleted = position_delete(args.symbol)
+        data = {
+            "code": 0 if deleted else 1,
+            "message": f"已删除: {args.symbol}" if deleted else f"持仓不存在: {args.symbol}"
+        }
+        print(json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        data = {"code": 1, "message": f"删除失败: {e}"}
+        print(json.dumps(data, ensure_ascii=False))
+        sys.exit(1)
+
+
+def cmd_position_portfolio(args):
+    """持仓汇总"""
+    from jstock import portfolio_summary
+    try:
+        summary = portfolio_summary()
+        data = {
+            "code": 0,
+            "data": {
+                "count": summary["count"],
+                "total_cost": summary["total_cost"],
+                "total_market_value": summary["total_market_value"],
+                "total_profit": summary["total_profit"],
+                "profit_rate": summary["profit_rate"],
+                "positions": [_position_to_dict(p) for p in summary["positions"]]
+            }
+        }
+        print(json.dumps(data, ensure_ascii=False))
+    except Exception as e:
+        data = {"code": 1, "message": f"查询失败: {e}"}
+        print(json.dumps(data, ensure_ascii=False))
+        sys.exit(1)
+
+
 def main():
     parser = argparse.ArgumentParser(description="股票数据查询CLI")
     sub = parser.add_subparsers(dest="cmd")
@@ -143,6 +259,33 @@ def main():
     p = sub.add_parser("shares", help="股本变动")
     p.add_argument("symbol", help="股票代码")
 
+    # position 子命令
+    pos_sub = sub.add_parser("position", help="持仓管理")
+    pos = pos_sub.add_subparsers(dest="pos_cmd")
+
+    # position save
+    p = pos.add_parser("save", help="保存持仓")
+    p.add_argument("symbol", help="股票代码")
+    p.add_argument("--volume", type=float, required=True, help="持仓数量")
+    p.add_argument("--cost", type=float, required=True, help="成本价")
+    p.add_argument("--name", help="名称")
+    p.add_argument("--type", default="stock", help="类型 stock/etf/fund")
+
+    # position get
+    p = pos.add_parser("get", help="查询单个持仓")
+    p.add_argument("symbol", help="股票代码")
+
+    # position list
+    p = pos.add_parser("list", help="查询持仓列表")
+    p.add_argument("--type", help="类型过滤 stock/etf/fund")
+
+    # position delete
+    p = pos.add_parser("delete", help="删除持仓")
+    p.add_argument("symbol", help="股票代码")
+
+    # position portfolio
+    p = pos.add_parser("portfolio", help="持仓汇总")
+
     args = parser.parse_args()
 
     if args.cmd == "quote":
@@ -153,6 +296,20 @@ def main():
         cmd_bonus(args)
     elif args.cmd == "shares":
         cmd_shares(args)
+    elif args.cmd == "position":
+        if args.pos_cmd == "save":
+            cmd_position_save(args)
+        elif args.pos_cmd == "get":
+            cmd_position_get(args)
+        elif args.pos_cmd == "list":
+            cmd_position_list(args)
+        elif args.pos_cmd == "delete":
+            cmd_position_delete(args)
+        elif args.pos_cmd == "portfolio":
+            cmd_position_portfolio(args)
+        else:
+            pos_sub.print_help()
+            sys.exit(1)
     else:
         parser.print_help()
         sys.exit(1)

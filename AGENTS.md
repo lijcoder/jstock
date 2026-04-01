@@ -6,27 +6,30 @@ A 股股票数据查询工具，统一封装雪球、同花顺数据源。
 
 ```
 jstock/
-├── AGENTS.md         # 本文件，开发指南
-├── README.md         # 项目说明
-├── pyproject.toml    # 项目配置
-├── uv.lock           # 依赖锁定
-├── jstock/           # 核心包
-│   ├── __init__.py   # 包导出 (quote, kline, bonus, shares)
-│   ├── config.py     # 配置 (User-Agent 等)
-│   ├── models.py     # 数据模型 (Quote, Kline, Bonus, Shares)
-│   ├── stock_api.py  # 统一 API 门面
-│   ├── stock_ths.py  # 同花顺客户端 (K 线数据)
-│   └── stock_xq.py   # 雪球客户端 (行情/分红/股本)
-├── cli/              # 命令行入口
-│   ├── __init__.py
-│   └── __main__.py   # CLI 实现 (Typer)
-├── skills/           # 技能定义 (AI Agent 使用)
+├── AGENTS.md           # 本文件，开发指南
+├── README.md           # 项目说明
+├── pyproject.toml      # 项目配置
+├── uv.lock             # 依赖锁定
+├── jstock/             # 核心包
+│   ├── __init__.py     # 包导出
+│   ├── config.py       # 配置 (User-Agent、DB_PATH)
+│   ├── models.py       # 数据模型 (Quote, Kline, Bonus, Shares, Position)
+│   ├── model_db.py     # 数据库实体 (DBPosition)
+│   ├── stock_api.py     # 统一 API 门面
+│   ├── stock_db.py      # 持仓数据库操作
+│   ├── stock_positions.py  # 持仓 API
+│   ├── stock_ths.py    # 同花顺客户端 (K 线数据)
+│   └── stock_xq.py     # 雪球客户端 (行情/分红/股本)
+├── cli/                # 命令行入口
+│   └── __main__.py     # CLI 实现
+├── skills/             # 技能定义 (AI Agent 使用)
 │   └── jstock/
-│       └── SKILL.md  # jstock 技能说明
-└── tests/            # 测试
-    ├── test_api.py   # API 测试
-    ├── test_ths.py   # 同花顺测试
-    └── test_xq.py    # 雪球测试
+│       └── SKILL.md    # jstock 技能说明
+└── tests/              # 测试
+    ├── test_api.py     # API 测试
+    ├── test_db.py      # 持仓数据库测试
+    ├── test_ths.py     # 同花顺测试
+    └── test_xq.py      # 雪球测试
 ```
 
 ## 开发环境
@@ -75,6 +78,46 @@ jstock quote 601398                              # 行情
 jstock kline 601398 --start 2026-01-01          # K 线
 jstock bonus 601398                              # 分红
 jstock shares 601398                             # 股本
+jstock position save 601398 --volume 1000 --cost 5.5  # 保存持仓
+jstock position list                             # 持仓列表
+jstock position list --type etf                  # 只查 ETF
+jstock position get 601398                        # 持仓详情
+jstock position delete 601398                    # 删除持仓
+jstock position portfolio                         # 持仓汇总
+```
+
+### Python API (持仓)
+
+```python
+from jstock import position_save, position_get, position_list, position_delete, portfolio_summary
+
+# 保存持仓
+position_save("601398", volume=1000, cost_price=5.5, name="工商银行", type="stock")
+position_save("510300", volume=500, cost_price=3.8, type="etf")
+
+# 查询持仓（自动获取实时价格计算盈亏）
+positions = position_list()
+for p in positions:
+    print(f"{p.symbol}: {p.volume}股 @ {p.cost_price} | 现价:{p.current_price} | 盈亏:{p.profit} ({p.profit_rate}%)")
+
+# 单个持仓
+pos = position_get("601398")
+
+# 汇总
+s = portfolio_summary()
+print(f"总投入:{s['total_cost']} 总市值:{s['total_market_value']} 盈亏:{s['total_profit']} ({s['profit_rate']}%)")
+
+# 删除
+position_delete("601398")
+```
+
+### CLI 返回格式
+
+所有 CLI 命令返回 JSON 格式，便于程序处理：
+
+```json
+{"code": 0, "data": {...}}
+{"code": 1, "message": "错误信息"}
 ```
 
 ## 数据模型
@@ -121,6 +164,17 @@ jstock shares 601398                             # 股本
   - `float_h`: 流通 H 股 (股)
   - `reason`: 变动原因
 
+### Position (持仓)
+- `symbol`: 股票代码
+- `name`: 股票名称
+- `type`: 类型 (stock/etf/fund)
+- `volume`: 持仓数量
+- `cost_price`: 成本价
+- `current_price`: 当前价 (动态)
+- `market_value`: 市值 (动态)
+- `profit`: 盈亏 (动态)
+- `profit_rate`: 盈亏率 % (动态)
+
 ## 数据源
 
 | 功能 | 数据源 | 文件 |
@@ -129,6 +183,19 @@ jstock shares 601398                             # 股本
 | kline | 同花顺 | stock_ths.py |
 | bonus | 雪球 | stock_xq.py |
 | shares | 雪球 | stock_xq.py |
+
+## 数据库
+
+| 数据库 | 路径 | 说明 |
+|--------|------|------|
+| 持仓数据库 | ~/.jstock/db/positions.db | SQLite，存储持仓数据 |
+
+## 数据模型文件
+
+| 文件 | 说明 |
+|------|------|
+| models.py | 用户数据结构体 (Position) |
+| model_db.py | 数据库实体 (DBPosition) |
 
 ## 开发指南
 

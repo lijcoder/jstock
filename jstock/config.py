@@ -14,6 +14,7 @@ CONFIG_DIR = os.path.expanduser("~/.jstock")
 # 子目录
 CACHE_DIR = os.path.join(CONFIG_DIR, "cache")
 DATA_DIR = os.path.join(CONFIG_DIR, "data")
+DB_PATH = os.path.join(CONFIG_DIR, "db", "positions.db")
 
 # 雪球相关
 XUEQIU_CACHE_DIR = os.path.join(CACHE_DIR, "xueqiu")
@@ -26,6 +27,7 @@ def ensure_dirs():
     os.makedirs(CONFIG_DIR, exist_ok=True)
     os.makedirs(CACHE_DIR, exist_ok=True)
     os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     os.makedirs(XUEQIU_CACHE_DIR, exist_ok=True)
 
 
