@@ -49,10 +49,17 @@ class StockDB:
                     type TEXT DEFAULT 'stock',
                     volume REAL DEFAULT 0,
                     cost_price REAL DEFAULT 0,
+                    buy_date TEXT,
                     created_at TEXT DEFAULT (datetime('now', 'localtime')),
                     updated_at TEXT DEFAULT (datetime('now', 'localtime'))
                 )
             """)
+            # 兼容历史数据：如果 buy_date 列不存在，则添加
+            cursor.execute("PRAGMA table_info(positions)")
+            columns = [col[1] for col in cursor.fetchall()]
+            if 'buy_date' not in columns:
+                cursor.execute("ALTER TABLE positions ADD COLUMN buy_date TEXT")
+                logger.info("已添加 buy_date 列（历史数据兼容）")
             conn.commit()
             conn.close()
             logger.info(f"数据库初始化成功: {self.db_path}")
@@ -67,16 +74,17 @@ class StockDB:
             conn = self._get_conn()
             cursor = conn.cursor()
             cursor.execute("""
-                INSERT INTO positions (symbol, name, type, volume, cost_price)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO positions (symbol, name, type, volume, cost_price, buy_date)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT(symbol) DO UPDATE SET
                     name=excluded.name,
                     type=excluded.type,
                     volume=excluded.volume,
                     cost_price=excluded.cost_price,
+                    buy_date=COALESCE(excluded.buy_date, buy_date),
                     updated_at=datetime('now', 'localtime')
             """, (db_pos.symbol, db_pos.name, db_pos.type,
-                  db_pos.volume, db_pos.cost_price))
+                  db_pos.volume, db_pos.cost_price, db_pos.buy_date))
             conn.commit()
             conn.close()
             logger.info(f"持仓已保存: {db_pos.symbol} {db_pos.volume}股 @ {db_pos.cost_price}")
@@ -119,6 +127,7 @@ class StockDB:
                     type=row["type"],
                     volume=row["volume"],
                     cost_price=row["cost_price"],
+                    buy_date=row["buy_date"],
                     created_at=row["created_at"],
                     updated_at=row["updated_at"]
                 )
@@ -148,6 +157,7 @@ class StockDB:
                 type=row["type"],
                 volume=row["volume"],
                 cost_price=row["cost_price"],
+                buy_date=row["buy_date"],
                 created_at=row["created_at"],
                 updated_at=row["updated_at"]
             ) for row in rows]

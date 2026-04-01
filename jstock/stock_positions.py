@@ -31,7 +31,8 @@ def _get_db() -> StockDB:
 
 
 def position_save(symbol: str, volume: float, cost_price: float,
-                 name: Optional[str] = None, type: str = "stock") -> bool:
+                 name: Optional[str] = None, type: str = "stock",
+                 buy_date: Optional[str] = None) -> bool:
     """
     保存持仓
     
@@ -41,6 +42,7 @@ def position_save(symbol: str, volume: float, cost_price: float,
         cost_price: 成本价
         name: 名称（可选）
         type: 类型 stock/etf/fund（默认 stock）
+        buy_date: 建仓时间（可选），格式 YYYY-MM-DD
     
     Returns:
         bool: 是否成功
@@ -51,7 +53,8 @@ def position_save(symbol: str, volume: float, cost_price: float,
             name=name,
             type=type,
             volume=volume,
-            cost_price=cost_price
+            cost_price=cost_price,
+            buy_date=buy_date
         )
         _get_db().save(db_pos)
         return True
@@ -150,7 +153,8 @@ def _to_position(db_pos: DBPosition, with_price: bool) -> Position:
         name=db_pos.name,
         type=db_pos.type,
         volume=db_pos.volume,
-        cost_price=db_pos.cost_price
+        cost_price=db_pos.cost_price,
+        buy_date=db_pos.buy_date
     )
     return pos
 

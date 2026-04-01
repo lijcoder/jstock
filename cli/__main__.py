@@ -136,6 +136,8 @@ def _position_to_dict(pos):
         "cost_price": pos.cost_price,
         "cost_amount": pos.cost_amount,
     }
+    if pos.buy_date:
+        result["buy_date"] = pos.buy_date
     if pos.current_price is not None:
         result.update({
             "current_price": pos.current_price,
@@ -150,7 +152,7 @@ def cmd_position_save(args):
     """保存持仓"""
     from jstock import position_save
     try:
-        position_save(args.symbol, args.volume, args.cost, args.name, args.type)
+        position_save(args.symbol, args.volume, args.cost, args.name, args.type, args.buy_date)
         data = {
             "code": 0,
             "message": f"已保存持仓: {args.symbol}",
@@ -160,6 +162,7 @@ def cmd_position_save(args):
                 "cost_price": args.cost,
                 "name": args.name,
                 "type": args.type,
+                "buy_date": args.buy_date,
             }
         }
         print(json.dumps(data, ensure_ascii=False))
@@ -270,6 +273,7 @@ def main():
     p.add_argument("--cost", type=float, required=True, help="成本价")
     p.add_argument("--name", help="名称")
     p.add_argument("--type", default="stock", help="类型 stock/etf/fund")
+    p.add_argument("--buy-date", dest="buy_date", help="建仓时间 YYYY-MM-DD")
 
     # position get
     p = pos.add_parser("get", help="查询单个持仓")

@@ -16,7 +16,8 @@ class DBPosition:
     symbol: str                     # 代码 (主键)
     name: Optional[str] = None      # 名称
     type: str = "stock"            # 类型：stock/etf/fund
-    volume: float = 0.0            # 持仓数量
-    cost_price: float = 0.0       # 成本价
+    volume: float = 0.0            # 持仓数量（股）
+    cost_price: float = 0.0        # 成本价
+    buy_date: Optional[str] = None  # 建仓时间
     created_at: Optional[str] = None
     updated_at: Optional[str] = None

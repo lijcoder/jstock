@@ -17,7 +17,7 @@ jstock bonus 601398                              # 分红
 jstock shares 601398                             # 股本
 
 # 持仓管理
-jstock position save 601398 --volume 1000 --cost 5.5    # 保存持仓
+jstock position save 601398 --volume 1000 --cost 5.5 --buy-date 2026-01-01  # 保存持仓（带建仓时间）
 jstock position list                                    # 持仓列表
 jstock position list --type etf                         # 只查 ETF
 jstock position get 601398                              # 持仓详情
@@ -38,7 +38,7 @@ b = bonus("601398")           # 分红
 s = shares("601398")          # 股本变动
 
 # 持仓管理
-position_save("601398", volume=1000, cost_price=5.5, name="工商银行", type="stock")
+position_save("601398", volume=1000, cost_price=5.5, name="工商银行", type="stock", buy_date="2026-01-01")
 position_save("510300", volume=500, cost_price=3.8, type="etf")
 positions = position_list()   # 含实时盈亏
 pos = position_get("601398")  # 单个持仓
@@ -55,7 +55,7 @@ summary = portfolio_summary()  # 汇总
 - **shares**: `{symbol, records: [{date, total(股), float_a(股), float_h(股), reason}]}`
 
 ### 持仓数据
-- **position**: `{symbol, name, type(stock/etf/fund), volume(股), cost_price, cost_amount, current_price, market_value, profit, profit_rate}`
+- **position**: `{symbol, name, type(stock/etf/fund), volume(股), cost_price, buy_date, cost_amount, current_price, market_value, profit, profit_rate}`
 - **portfolio_summary**: `{count, total_cost, total_market_value, total_profit, profit_rate, positions[]}`
 
 ## 数据源

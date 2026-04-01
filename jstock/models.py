@@ -183,8 +183,9 @@ class Position:
     symbol: str                                 # 代码
     name: Optional[str] = None                   # 名称
     type: str = "stock"                         # 类型：stock/etf/fund
-    volume: float = 0.0                         # 持仓数量
+    volume: float = 0.0                         # 持仓数量（股）
     cost_price: float = 0.0                     # 成本价
+    buy_date: Optional[str] = None              # 建仓时间
     
     # 动态字段（不存储）
     current_price: Optional[float] = None      # 当前价

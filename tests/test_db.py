@@ -59,7 +59,8 @@ class TestStockDB:
             name="浦发银行",
             type="stock",
             volume=1000,
-            cost_price=10.5
+            cost_price=10.5,
+            buy_date="2026-01-01"
         )
         assert db.save(db_pos) is True
         
@@ -70,6 +71,19 @@ class TestStockDB:
         assert saved.name == "浦发银行"
         assert saved.volume == 1000
         assert saved.cost_price == 10.5
+        assert saved.buy_date == "2026-01-01"
+    
+    def test_save_position_without_buy_date(self, db):
+        """测试保存持仓（无建仓时间，兼容历史数据）"""
+        db_pos = DBPosition(
+            symbol="600000",
+            volume=1000,
+            cost_price=10.5
+        )
+        assert db.save(db_pos) is True
+        
+        saved = db.get("600000")
+        assert saved.buy_date is None  # 历史数据没有建仓时间
     
     def test_update_position(self, db):
         """测试更新持仓"""
@@ -158,6 +172,16 @@ class TestStockPositions:
         
         from jstock import position_save
         assert position_save("600000", 1000, 10.5, "浦发银行", "stock") is True
+    
+    def test_position_save_with_buy_date(self, db_path):
+        """测试保存持仓（带建仓时间）"""
+        stock_positions._db = StockDB(db_path)
+        
+        from jstock import position_save, position_get
+        assert position_save("600001", 500, 5.0, "某股票", buy_date="2026-01-15") is True
+        
+        pos = position_get("600001", with_price=False)
+        assert pos.buy_date == "2026-01-15"
     
     def test_position_get(self, db_path):
         """测试查询持仓"""
